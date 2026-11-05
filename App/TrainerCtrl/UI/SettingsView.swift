@@ -8,11 +8,13 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var shareItem: ShareItem?
     @State private var exportError: String?
+    @State private var showingCalibration = false
 
     var body: some View {
         NavigationStack {
             Form {
                 shiftingSection
+                calibrationSection
                 trainerSection
                 zwiftSection
                 logSection
@@ -25,6 +27,7 @@ struct SettingsView: View {
                 }
             }
             .sheet(item: $shareItem) { item in ActivityView(items: [item.url]) }
+            .sheet(isPresented: $showingCalibration) { CalibrationView(bridge: bridge) }
             .alert("Export failed", isPresented: .constant(exportError != nil)) {
                 Button("OK") { exportError = nil }
             } message: {
@@ -43,6 +46,37 @@ struct SettingsView: View {
         } footer: {
             Text("With virtual shifting off, Zwift's grade goes to the trainer unchanged. Volume buttons: up is a harder gear, down is easier. Turned off, they change the volume as usual.")
         }
+    }
+
+    private var calibrationSection: some View {
+        Section {
+            Picker("Shifting model", selection: $bridge.shiftingModel) {
+                ForEach(ShiftingModel.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .disabled(bridge.usableCalibration == nil && bridge.shiftingModel == .simple)
+            if let saved = bridge.savedCalibration {
+                LabeledContent("Calibrated", value: saved.date.formatted(date: .abbreviated, time: .shortened))
+                CalibrationSummary(calibration: saved.calibration, maxGradeMeasured: saved.maxGradeMeasured)
+            }
+            Button(bridge.savedCalibration == nil ? "Calibrate trainer…" : "Recalibrate…") {
+                showingCalibration = true
+            }
+        } header: {
+            Text("Shifting model")
+        } footer: {
+            Text(modelFooter)
+        }
+    }
+
+    private var modelFooter: String {
+        if let cal = bridge.savedCalibration?.calibration, cal.realCog != bridge.rider.realCog {
+            return "The saved calibration was measured in a \(cal.realCog.map(String.init) ?? "?")T cog, not the \(bridge.rider.realCog)T you ride in, so simple shifting is used. Recalibrate."
+        }
+        if bridge.usableCalibration == nil {
+            return "Simple adds 1% grade per gear. Calibrated matches each gear's real effort and needs a trainer calibration first."
+        }
+        return "Simple adds 1% grade per gear. Calibrated scales the trainer's resistance so power and cadence match the virtual gear."
     }
 
     private var trainerSection: some View {

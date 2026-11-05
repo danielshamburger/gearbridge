@@ -2,6 +2,23 @@ import Foundation
 import Observation
 import TrainerCore
 
+/// How gears change the trainer's resistance.
+enum ShiftingModel: String, CaseIterable, Identifiable {
+    /// Strategy A: a fixed grade per gear. Works without calibration.
+    case simple = "Simple"
+    /// Strategy C: force scaling from a saved calibration.
+    case calibrated = "Calibrated"
+
+    var id: Self { self }
+}
+
+/// A calibration kept between launches.
+struct SavedCalibration: Codable, Equatable {
+    var calibration: TrainerCalibration
+    var date: Date
+    var maxGradeMeasured: Bool
+}
+
 enum TrainerSource: String, CaseIterable, Identifiable {
     case mock = "Mock"
     case bluetooth = "Flux S"
@@ -65,6 +82,27 @@ final class BridgeController {
         }
     }
 
+    /// Preferred model; `activeModel` falls back to simple without a usable calibration.
+    var shiftingModel: ShiftingModel {
+        didSet {
+            guard shiftingModel != oldValue else { return }
+            UserDefaults.standard.set(shiftingModel.rawValue, forKey: Keys.shiftingModel)
+            record(.event, "settings", [], "shiftingModel=\(shiftingModel.rawValue)")
+            rebuildEngine()
+        }
+    }
+
+    private(set) var savedCalibration: SavedCalibration?
+
+    /// The calibration routine, while it runs and until its result is saved or discarded.
+    private(set) var calibrationRun: CalibrationRun?
+    /// The bridge clock at the last calibration update, for progress bars.
+    private(set) var calibrationTime: TimeInterval = 0
+    /// Highest power a calibration step asks for, W.
+    var calibrationPowerCap: Double = CalibrationPlan().powerCap
+    /// With the mock trainer, set its cadence to each step's target automatically.
+    var mockFollowsCalibration = true
+
     private(set) var gearNumber: Int?
     private(set) var gearCount = 0
     private(set) var gearRatio: Double?
@@ -94,6 +132,8 @@ final class BridgeController {
         static let virtualShifting = "virtualShifting"
         static let reportsPower = "reportsPower"
         static let volumeButtonsShift = "volumeButtonsShift"
+        static let shiftingModel = "shiftingModel"
+        static let calibration = "trainerCalibration"
     }
 
     /// Monotonic seconds since launch, the bridge's clock.
@@ -113,6 +153,9 @@ final class BridgeController {
         virtualShifting = defaults.bool(forKey: Keys.virtualShifting)
         reportsPower = defaults.bool(forKey: Keys.reportsPower)
         volumeButtonsShift = defaults.bool(forKey: Keys.volumeButtonsShift)
+        shiftingModel = defaults.string(forKey: Keys.shiftingModel).flatMap(ShiftingModel.init) ?? .simple
+        savedCalibration = defaults.data(forKey: Keys.calibration)
+            .flatMap { try? JSONDecoder().decode(SavedCalibration.self, from: $0) }
         core.reportsPower = reportsPower
         peripheral.feature = BridgeCore.virtualFeature(copying: nil, reportsPower: reportsPower)
         if virtualShifting { _ = core.setEngine(makeEngine()) }
@@ -140,15 +183,41 @@ final class BridgeController {
         case .atLimit:
             haptics.blocked()
             record(.event, "shift", [], "\(direction == .up ? "up" : "down") ignored: at limit")
-        case .ignoredInERG, .disabled:
+        case .ignoredInERG, .disabled, .overridden:
             haptics.blocked()
         }
         perform(outputs)
         refreshShiftState()
     }
 
+    /// The model actually in use.
+    var activeModel: ShiftingModel {
+        shiftingModel == .calibrated && usableCalibration != nil ? .calibrated : .simple
+    }
+
+    /// The saved calibration, if it was measured in the current real cog.
+    var usableCalibration: TrainerCalibration? {
+        guard let cal = savedCalibration?.calibration, cal.realCog == rider.realCog else { return nil }
+        return cal
+    }
+
     private func makeEngine() -> ShiftingEngine {
-        .gradeOffset(profile: profile, rider: rider)
+        if activeModel == .calibrated, let calibration = usableCalibration {
+            return .forceScaling(profile: profile, rider: rider, calibration: calibration)
+        }
+        return .gradeOffset(profile: profile, rider: rider)
+    }
+
+    /// Swaps the engine, keeping the selected gear.
+    private func rebuildEngine() {
+        guard virtualShifting else { return }
+        var engine = makeEngine()
+        if let current = core.engine?.gearbox.gearIndex {
+            let start = engine.gearbox.gearIndex
+            for _ in 0..<abs(current - start) { engine.shift(current > start ? .up : .down, at: -1) }
+        }
+        perform(core.setEngine(engine, at: now))
+        refreshShiftState()
     }
 
     private func refreshShiftState() {
@@ -209,6 +278,7 @@ final class BridgeController {
     // MARK: Trainer side
 
     private func connectTrainer() {
+        if calibrationRun?.phase.isActive == true { cancelCalibration() }
         link?.onEvent = nil
         link?.stop()
         core.trainerDidDisconnect()
@@ -241,6 +311,7 @@ final class BridgeController {
             latestData = data
             record(.fromTrainer, FTMSUUID.indoorBikeData, raw, data.logSummary)
             perform(core.handleTrainerData(data, at: now))
+            updateCalibration(with: data)
             refreshShiftState()
         case .response(let response, let raw):
             record(.fromTrainer, FTMSUUID.controlPoint, raw, response.logSummary)
@@ -290,3 +361,102 @@ final class BridgeController {
         }
     }
 }
+
+// MARK: - Calibration
+
+extension BridgeController {
+    var calibrationPlan: CalibrationPlan {
+        var plan = CalibrationPlan()
+        plan.powerCap = calibrationPowerCap
+        plan.wheelCircumference = profile.wheelCircumference
+        return plan
+    }
+
+    var canCalibrate: Bool {
+        trainerState.isConnected && !(calibrationRun?.phase.isActive ?? false)
+    }
+
+    func startCalibration() {
+        guard canCalibrate else { return }
+        var run = CalibrationRun(plan: calibrationPlan, rider: rider)
+        let time = now
+        guard let command = run.start(at: time) else { return }
+        calibrationRun = run
+        calibrationTime = time
+        record(.event, "calibration", [], "start: \(run.steps.count) steps, cap \(Int(calibrationPowerCap)) W")
+        followStepWithMock()
+        perform(core.setTrainerOverride(command, at: time))
+    }
+
+    func skipCalibrationStep() {
+        guard var run = calibrationRun else { return }
+        let command = run.skipStep(at: now)
+        calibrationRun = run
+        record(.event, "calibration", [], "skipped step")
+        afterCalibrationChange(command)
+    }
+
+    func cancelCalibration() {
+        guard var run = calibrationRun else { return }
+        run.cancel()
+        calibrationRun = nil
+        record(.event, "calibration", [], "cancelled")
+        perform(core.setTrainerOverride(nil, at: now))
+    }
+
+    /// Saves the finished run's calibration and switches to the calibrated model.
+    func saveCalibration() {
+        guard case .finished(let result)? = calibrationRun?.phase else { return }
+        let saved = SavedCalibration(calibration: result.calibration, date: Date(), maxGradeMeasured: result.maxGradeMeasured)
+        if let data = try? JSONEncoder().encode(saved) {
+            UserDefaults.standard.set(data, forKey: Keys.calibration)
+        }
+        savedCalibration = saved
+        calibrationRun = nil
+        record(.event, "calibration", [], "saved")
+        if shiftingModel == .calibrated { rebuildEngine() } else { shiftingModel = .calibrated }
+    }
+
+    func discardCalibrationResult() {
+        calibrationRun = nil
+    }
+
+    private func updateCalibration(with data: IndoorBikeData) {
+        guard var run = calibrationRun, run.phase.isActive else { return }
+        let time = now
+        let command = run.handle(data, at: time)
+        calibrationRun = run
+        calibrationTime = time
+        afterCalibrationChange(command)
+    }
+
+    /// After the run advanced: send the next step, or hand the trainer back when done.
+    private func afterCalibrationChange(_ command: ControlPointRequest?) {
+        guard let run = calibrationRun else { return }
+        if let command {
+            let step = run.steps[run.stepIndex]
+            record(.event, "calibration", [], String(format: "step %d/%d: grade %.1f%%, %.0f rpm",
+                                                     run.stepIndex + 1, run.steps.count, step.grade * 100, step.targetCadence))
+            followStepWithMock()
+            perform(core.setTrainerOverride(command, at: now))
+        } else if !run.phase.isActive {
+            switch run.phase {
+            case .finished(let result):
+                let c = result.calibration
+                record(.event, "calibration", [], String(format: "finished: a=%.2f b=%.1f c=%.3f maxGrade=%.3f rms=%.2f",
+                                                         c.a, c.b, c.c, c.maxGrade, c.residualRMS ?? 0))
+            case .failed(let error):
+                record(.event, "calibration", [], "failed: \(error)")
+            default:
+                break
+            }
+            perform(core.setTrainerOverride(nil, at: now))
+        }
+    }
+
+    private func followStepWithMock() {
+        guard source == .mock, mockFollowsCalibration, let step = calibrationRun?.currentStep else { return }
+        mockCadence = step.targetCadence
+    }
+}
+

@@ -55,6 +55,20 @@ public struct ShiftingEngine: Sendable {
         )
     }
 
+    /// Strategy C with a fitted calibration.
+    public static func forceScaling(
+        profile: GearProfile,
+        rider: RiderSetup,
+        calibration: TrainerCalibration,
+        gradeScale: Double = 1
+    ) -> ShiftingEngine {
+        ShiftingEngine(
+            gearbox: Gearbox(profile: profile),
+            strategy: .forceScaling(ForceScalingStrategy(calibration: calibration)),
+            context: EngineContext(rider: rider, gradeScale: gradeScale)
+        )
+    }
+
     public mutating func updateSpeed(_ metersPerSecond: Double, at time: TimeInterval) {
         smoother.update(max(metersPerSecond, 0), at: time)
     }

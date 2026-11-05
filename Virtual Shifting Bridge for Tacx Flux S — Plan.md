@@ -142,6 +142,13 @@ Calibration fits the trainer's real force response, F = a + b × grade\_cmd + c 
 6. Record the limits: the grade where measured force stops rising (maxGrade) and the floor force at each speed (minGrade(v)).
 7. Try sim command rates of 1, 2 and 4 Hz and keep the fastest that doesn't stutter.
 
+Implementation notes:
+
+- **Power cap.** Each grade is ridden at a high and a low cadence (90/75/60/50 rpm candidates), skipping any whose predicted power exceeds a rider-set cap (default 350 W). In 50×17 that stops at 8 %: 10 % needs about 400 W even at 50 rpm.
+- **Max grade.** Saturation is detected by fitting the lower grades and checking whether the next grade falls short of the prediction. If force never stops rising within the measured grades, maxGrade is assumed to be 10 % and shown as assumed.
+- **Floor.** Two steps at −15 % measure the minimum force at two speeds.
+- **Steadiness.** Each step settles 10 s, then averages 10 s; the window restarts if speed varies by more than 5 % (SD/mean).
+
 The settings screen shows the fitted values and residuals, so a bad fit is visible. Re-run after trainer firmware updates or a change of real cog. Settling time and sample duration are open until the first real runs.
 
 ## Code structure and testing

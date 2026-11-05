@@ -32,6 +32,8 @@ public struct BridgeCore: Sendable {
         case disabled
         /// Zwift is in ERG mode, which holds power regardless of gear.
         case ignoredInERG
+        /// Something else (calibration) is controlling the trainer.
+        case overridden
     }
 
     /// Road used when no simulation command applies (before Zwift takes
@@ -47,6 +49,11 @@ public struct BridgeCore: Sendable {
     public private(set) var engine: ShiftingEngine?
     /// The engine's latest result, for the UI. Nil in ERG or without an engine.
     public private(set) var lastEngineCommand: TrainerCommand?
+
+    /// While set, the trainer holds this command (e.g. during calibration).
+    /// Zwift is still answered but its commands only take effect once the
+    /// override is cleared, and shifts are ignored.
+    public private(set) var trainerOverride: ControlPointRequest?
 
     /// When false, power is stripped from the data sent to Zwift, so Zwift
     /// takes power from another source (e.g. the trainer over ANT+).
@@ -120,8 +127,16 @@ public struct BridgeCore: Sendable {
         return commandTrainer(at: time, force: true)
     }
 
+    /// Sets or clears the override; clearing restores what Zwift last asked for.
+    public mutating func setTrainerOverride(_ request: ControlPointRequest?, at time: TimeInterval) -> [Output] {
+        trainerOverride = request
+        throttle.reset()
+        return commandTrainer(at: time, force: true, resendOverride: true)
+    }
+
     public mutating func shift(_ direction: Gearbox.Direction, at time: TimeInterval) -> (ShiftOutcome, [Output]) {
         guard engine != nil else { return (.disabled, []) }
+        if trainerOverride != nil { return (.overridden, []) }
         if case .targetPower = zwiftMode { return (.ignoredInERG, []) }
         switch engine!.shift(direction, at: time) {
         case .atLimit:
@@ -152,7 +167,7 @@ public struct BridgeCore: Sendable {
             trainerHasControl = true
             // Restore whatever Zwift last asked for (e.g. after a reconnect).
             throttle.reset()
-            return [.sendToTrainer(.startOrResume)] + commandTrainer(at: time, force: true)
+            return [.sendToTrainer(.startOrResume)] + commandTrainer(at: time, force: true, resendOverride: true)
         case (let op, .controlNotPermitted) where op != requestControl:
             trainerHasControl = false
             return [.sendToTrainer(.requestControl)]
@@ -178,7 +193,7 @@ public struct BridgeCore: Sendable {
         if engine != nil, let speed = data.speedMetersPerSecond {
             engine!.updateSpeed(speed, at: time)
             // ERG targets don't depend on speed; only re-run the engine in sim.
-            if case .targetPower = zwiftMode {} else {
+            if case .targetPower = zwiftMode {} else if trainerOverride == nil {
                 outputs += commandTrainer(at: time, force: false)
             }
         }
@@ -190,6 +205,7 @@ public struct BridgeCore: Sendable {
     /// The command the trainer should currently be holding, and the engine's
     /// result when the engine produced it.
     public func trainerCommand(at time: TimeInterval = 0) -> (request: ControlPointRequest, engine: TrainerCommand?) {
+        if let trainerOverride { return (trainerOverride, nil) }
         let road: SimulationParameters
         switch zwiftMode {
         case .targetPower(let watts):
@@ -213,7 +229,10 @@ public struct BridgeCore: Sendable {
     /// Sends the current command if the trainer is controllable. Without an
     /// engine every call sends; with one, `CommandThrottle` drops repeats and
     /// limits the rate, and `force` guarantees the next allowed send happens.
-    private mutating func commandTrainer(at time: TimeInterval, force: Bool) -> [Output] {
+    /// While an override is set, only `resendOverride` calls (setting it, or
+    /// replaying after a reconnect) send anything.
+    private mutating func commandTrainer(at time: TimeInterval, force: Bool, resendOverride: Bool = false) -> [Output] {
+        if trainerOverride != nil, !resendOverride { return [] }
         let (request, command) = trainerCommand(at: time)
         if let command { lastEngineCommand = command }
         guard trainerHasControl else { return [] }
