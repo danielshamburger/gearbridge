@@ -37,6 +37,19 @@ struct GearProfileTests {
         #expect(profile.label(ofGear: profile.gearCount - 1) == "50×11")
     }
 
+    @Test func cassetteFromRange() {
+        let cogs = Drivetrain.cassette(smallest: 10, largest: 52, count: 12)
+        #expect(cogs.count == 12)
+        #expect(cogs.first == 10)
+        #expect(cogs.last == 52)
+        #expect(zip(cogs, cogs.dropFirst()).allSatisfy { $0 < $1 })
+        // Tight range: count is capped and every cog is used.
+        #expect(Drivetrain.cassette(smallest: 11, largest: 14, count: 12) == [11, 12, 13, 14])
+        #expect(Drivetrain.cassette(smallest: 11, largest: 13, count: 3) == [11, 12, 13])
+        #expect(Drivetrain.cassette(smallest: 28, largest: 11, count: 2) == [11, 28])
+        #expect(Drivetrain.cassette(smallest: 11, largest: 11, count: 5) == [11])
+    }
+
     @Test func rejectsBadTeeth() {
         #expect(throws: GearProfileError.invalidTeeth) {
             try GearProfile(name: "x", drivetrain: Drivetrain(chainrings: [], cogs: [11]))

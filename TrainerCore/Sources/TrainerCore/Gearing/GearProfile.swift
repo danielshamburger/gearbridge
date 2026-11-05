@@ -21,6 +21,24 @@ public struct Drivetrain: Equatable, Sendable, Codable {
         self.cogs = cogs
     }
 
+    /// `count` cogs from `smallest` to `largest` teeth, evenly spaced as ratios
+    /// (each step the same percentage), rounded to whole teeth, smallest first.
+    /// `count` is limited to the cogs that fit between the two.
+    public static func cassette(smallest: Int, largest: Int, count: Int) -> [Int] {
+        let lo = min(smallest, largest), hi = max(smallest, largest)
+        let n = min(max(count, 1), hi - lo + 1)
+        guard n > 1 else { return [lo] }
+        var cogs: [Int] = []
+        for i in 0..<n {
+            let ideal = Int((Double(lo) * pow(Double(hi) / Double(lo), Double(i) / Double(n - 1))).rounded())
+            // Keep teeth strictly increasing and leave room for the cogs still to come.
+            let floor = (cogs.last ?? lo - 1) + 1
+            let ceiling = hi - (n - 1 - i)
+            cogs.append(min(max(ideal, floor), ceiling))
+        }
+        return cogs
+    }
+
     public struct Gear: Equatable, Sendable {
         public var chainring: Int
         public var cog: Int

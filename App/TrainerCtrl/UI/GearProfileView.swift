@@ -5,9 +5,10 @@ import TrainerCore
 struct GearProfileView: View {
     @Bindable var bridge: BridgeController
 
-    @State private var chainringsText = ""
-    @State private var cogsText = ""
-    @State private var customError: String?
+    @State private var chainring = 42
+    @State private var smallestCog = 10
+    @State private var largestCog = 52
+    @State private var cogCount = 12
 
     /// Custom profiles reuse one id so re-editing replaces the previous one.
     static let customID = UUID(uuidString: "00000000-0000-0000-0000-0000000000C0")!
@@ -48,21 +49,21 @@ struct GearProfileView: View {
 
     private var customSection: some View {
         Section {
-            LabeledContent("Chainrings") {
-                TextField("50, 34", text: $chainringsText)
-                    .multilineTextAlignment(.trailing)
-                    .keyboardType(.numbersAndPunctuation)
+            Picker("Chainring", selection: $chainring) {
+                ForEach(24...62, id: \.self) { Text("\($0)T").tag($0) }
             }
-            LabeledContent("Cassette") {
-                TextField("11-12-13-…-28", text: $cogsText)
-                    .multilineTextAlignment(.trailing)
-                    .keyboardType(.numbersAndPunctuation)
+            Picker("Smallest cog", selection: $smallestCog) {
+                ForEach(10...51, id: \.self) { Text("\($0)T").tag($0) }
             }
+            Picker("Largest cog", selection: $largestCog) {
+                ForEach(11...52, id: \.self) { Text("\($0)T").tag($0) }
+            }
+            Stepper(value: $cogCount, in: 2...maxCogCount) {
+                LabeledContent("Cogs", value: "\(min(cogCount, maxCogCount))")
+            }
+            LabeledContent("Cassette", value: customCogs.map(String.init).joined(separator: "-"))
+                .font(.footnote)
             Button("Use these gears", action: applyCustom)
-                .disabled(teeth(chainringsText).isEmpty || teeth(cogsText).isEmpty)
-            if let customError {
-                Text(customError).font(.footnote).foregroundStyle(.red)
-            }
         } header: {
             HStack {
                 Text("Custom")
@@ -70,8 +71,10 @@ struct GearProfileView: View {
                 if bridge.profile.id == Self.customID { Image(systemName: "checkmark") }
             }
         } footer: {
-            Text("Teeth separated by commas, spaces or dashes. With two chainrings, all combinations make one list of gears, easiest first, and gears less than 3% apart are merged.")
+            Text("Cogs are spaced evenly between the smallest and largest, each step the same percentage harder.")
         }
+        .onChange(of: smallestCog) { if largestCog <= smallestCog { largestCog = smallestCog + 1 } }
+        .onChange(of: largestCog) { if smallestCog >= largestCog { smallestCog = largestCog - 1 } }
     }
 
     private var startingGearSection: some View {
@@ -126,44 +129,33 @@ struct GearProfileView: View {
         bridge.profile.label(ofGear: index).map { " · \($0)" } ?? String(format: " · %.2f", bridge.profile.ratios[index])
     }
 
-    private func teeth(_ text: String) -> [Int] {
-        text.split { !$0.isNumber }.compactMap { Int($0) }
+    private var maxCogCount: Int { max(largestCog - smallestCog + 1, 2) }
+
+    private var customCogs: [Int] {
+        Drivetrain.cassette(smallest: smallestCog, largest: largestCog, count: cogCount)
     }
 
+    /// Fills the custom fields from the current profile.
     private func loadTeeth() {
-        guard let drivetrain = bridge.profile.drivetrain else { return }
-        chainringsText = drivetrain.chainrings.map(String.init).joined(separator: ", ")
-        cogsText = drivetrain.cogs.sorted().map(String.init).joined(separator: "-")
+        guard let drivetrain = bridge.profile.drivetrain,
+              let ring = drivetrain.chainrings.max(),
+              let lo = drivetrain.cogs.min(), let hi = drivetrain.cogs.max(), lo < hi
+        else { return }
+        chainring = min(max(ring, 24), 62)
+        smallestCog = min(max(lo, 10), 51)
+        largestCog = min(max(hi, smallestCog + 1), 52)
+        cogCount = drivetrain.cogs.count
     }
 
     private func applyCustom() {
-        let rings = Array(Set(teeth(chainringsText))).sorted(by: >)
-        let cogs = Array(Set(teeth(cogsText))).sorted()
-        guard rings.allSatisfy({ (20...60).contains($0) }) else {
-            customError = "Chainrings should be 20–60 teeth."
-            return
-        }
-        guard cogs.allSatisfy({ (9...60).contains($0) }) else {
-            customError = "Cogs should be 9–60 teeth."
-            return
-        }
-        guard rings.count <= 3 else {
-            customError = "At most three chainrings."
-            return
-        }
-        let name = rings.count == 1
-            ? "1× \(rings[0])T, \(cogs.first!)–\(cogs.last!)"
-            : "\(rings.count)× \(rings.map(String.init).joined(separator: "/")), \(cogs.first!)–\(cogs.last!)"
-        do {
-            bridge.profile = try GearProfile(
-                id: Self.customID,
-                name: name,
-                drivetrain: Drivetrain(chainrings: rings, cogs: cogs),
-                wheelCircumference: bridge.profile.wheelCircumference
-            )
-            customError = nil
-        } catch {
-            customError = "Those teeth don't make a usable set of gears."
-        }
+        let cogs = customCogs
+        guard let profile = try? GearProfile.oneBy(
+            id: Self.customID,
+            name: "1× \(chainring)T, \(cogs.first!)–\(cogs.last!)",
+            chainring: chainring,
+            cassette: cogs,
+            wheelCircumference: bridge.profile.wheelCircumference
+        ) else { return }
+        bridge.profile = profile
     }
 }
