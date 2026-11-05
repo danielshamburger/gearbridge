@@ -17,6 +17,12 @@ struct CalibrationRunTests {
         #expect(steps.last?.isFloor == true)
     }
 
+    @Test func defaultRealGearReachesTenPercent() {
+        let climb = CalibrationPlan().steps(for: RiderSetup()).filter { !$0.isFloor }
+        #expect(climb.map(\.grade).max() == 0.10)
+        #expect(climb.filter { $0.grade == 0.10 }.map(\.targetCadence) == [50])
+    }
+
     @Test func higherCapReachesSteeperGrades() {
         var plan = CalibrationPlan()
         plan.powerCap = 600

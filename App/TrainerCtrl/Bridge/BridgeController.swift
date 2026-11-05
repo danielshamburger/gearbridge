@@ -114,6 +114,7 @@ final class BridgeController {
             guard rider != oldValue else { return }
             save(rider, forKey: Keys.rider)
             record(.event, "settings", [], "real gear=\(rider.realChainring)x\(rider.realCog)")
+            (link as? MockTrainerLink)?.realGear = (rider.realChainring, rider.realCog)
             resetEngine()
         }
     }
@@ -444,6 +445,7 @@ final class BridgeController {
         case .mock:
             let mock = MockTrainerLink()
             mock.cadence = mockCadence
+            mock.realGear = (rider.realChainring, rider.realCog)
             newLink = mock
         case .bluetooth:
             newLink = FTMSTrainerLink()

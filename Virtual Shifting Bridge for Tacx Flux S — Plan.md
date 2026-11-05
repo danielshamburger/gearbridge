@@ -45,7 +45,7 @@ Six components, with the gear engine as the only one holding real logic; the res
 | Shift input | Up/down events | On-screen buttons, iPhone volume buttons, hold to multi-shift (\~150 ms repeat); ignored at either end with a distinct haptic |
 | UI | Display and settings | Big gear readout, ratio, cadence, power, Zwift grade, "maxed" indicator, packet log, settings |
 
-The real chain stays in one fixed cog, set once in settings (start mid-cassette, e.g. 50×17). It belongs to the bike, not to a profile.
+The real chain stays in one fixed cog, set once in settings (start mid-cassette; default 42×18). It belongs to the bike, not to a profile.
 
 Settings:
 
@@ -144,7 +144,7 @@ Calibration fits the trainer's real force response, F = a + b × grade\_cmd + c 
 
 Implementation notes:
 
-- **Power cap.** Each grade is ridden at a high and a low cadence (90/75/60/50 rpm candidates), skipping any whose predicted power exceeds a rider-set cap (default 350 W). In 50×17 that stops at 8 %: 10 % needs about 400 W even at 50 rpm.
+- **Power cap.** Each grade is ridden at a high and a low cadence (90/75/60/50 rpm candidates), skipping any whose predicted power exceeds a rider-set cap (default 350 W). In the default 42×18 that reaches 10 % (at 50 rpm only); in a taller gear like 50×17 it stops at 8 %, since 10 % needs about 400 W even at 50 rpm.
 - **Max grade.** Saturation is detected by fitting the lower grades and checking whether the next grade falls short of the prediction. If force never stops rising within the measured grades, maxGrade is assumed to be 10 % and shown as assumed.
 - **Floor.** Two steps at −15 % measure the minimum force at two speeds.
 - **Steadiness.** Each step settles 10 s, then averages 10 s; the window restarts if speed varies by more than 5 % (SD/mean).

@@ -11,6 +11,15 @@ final class MockTrainerLink: TrainerLink {
         set { trainer.rider.cadence = newValue }
     }
 
+    /// The mock rider's chain position; keep it the same as the app's real gear.
+    var realGear: (chainring: Int, cog: Int) {
+        get { (trainer.rider.chainring, trainer.rider.cog) }
+        set {
+            trainer.rider.chainring = newValue.chainring
+            trainer.rider.cog = newValue.cog
+        }
+    }
+
     private var trainer = MockTrainer(seed: UInt64.random(in: 1...UInt64.max))
     private var task: Task<Void, Never>?
     private let interval: TimeInterval = 0.5
