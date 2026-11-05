@@ -87,7 +87,8 @@ struct BridgeCoreTests {
 
     @Test func dataPassesThrough() {
         let data = IndoorBikeData(instantaneousSpeed: 30, instantaneousCadence: 85, instantaneousPower: 200)
-        #expect(BridgeCore().handleTrainerData(data) == [.notifyZwiftData(data)])
+        var bridge = BridgeCore()
+        #expect(bridge.handleTrainerData(data) == [.notifyZwiftData(data)])
     }
 
     @Test func virtualFeatureAdvertisesOnlyHandledTargets() {

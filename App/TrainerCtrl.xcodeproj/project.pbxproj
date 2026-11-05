@@ -178,7 +178,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = S6VDK579W8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = TrainerCtrl;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "TrainerCtrl connects to your smart trainer and presents itself to Zwift as a trainer.";
@@ -204,7 +204,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = S6VDK579W8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = TrainerCtrl;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "TrainerCtrl connects to your smart trainer and presents itself to Zwift as a trainer.";

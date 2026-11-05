@@ -26,7 +26,8 @@ Measured data flows through to Zwift unchanged. Zwift's sim values go to the gea
 
 Constraints:
 
-- **One BLE connection to the trainer at a time.** Zwift must not also connect to the Flux S, over BLE or ANT+, or two controllers fight over resistance.
+- **One BLE connection to the trainer at a time.** The Flux S accepts only one Bluetooth connection, and Zwift must never control it directly (over BLE or ANT+), or two controllers fight over resistance.
+- **Power-only ANT+ pairing is allowed.** "Power meter required" events reject unrecognized power sources such as the bridge. For those, Zwift pairs Power from the Flux S over ANT+ (USB dongle on the Mac) and Controllable from the bridge, and the bridge's "Send power to Zwift" setting is turned off. Still to confirm: the Flux S keeps broadcasting ANT+ power while the bridge holds its Bluetooth connection.
 - **No same-device bridge.** A device can't connect to a BLE peripheral it advertises itself, so Zwift and the bridge need separate devices.
 - **Foreground only.** iOS restricts BLE advertising for background apps, so the bridge app stays open on screen. It doubles as the shifter display.
 - **Fallback transport:** Direct Connect (DIRCON) over Wi-Fi carries the same FTMS packets over TCP, advertised with Bonjour, if BLE advertising proves unreliable.

@@ -1,9 +1,15 @@
+import Foundation
+
 /// The bridge's decisions, free of Bluetooth: how to answer Zwift and what to
 /// send the trainer. The app feeds it events and performs the outputs.
 ///
-/// Milestones 2–3 (transparent control): Zwift's commands are acknowledged
-/// immediately and forwarded unchanged; trainer data passes through to Zwift.
-/// The gear engine will later replace the forwarding of simulation commands.
+/// Without an engine, Zwift's commands are forwarded unchanged (transparent
+/// control). With an engine, simulation commands go through the gear engine,
+/// which is re-run on every trainer data packet and every shift. ERG commands
+/// are always forwarded unchanged and shifts are ignored while in ERG.
+///
+/// `time` arguments are a monotonic clock in seconds; they only matter when an
+/// engine is set.
 public struct BridgeCore: Sendable {
     public enum Output: Equatable, Sendable {
         case respondToZwift(ControlPointResponse)
@@ -19,25 +25,51 @@ public struct BridgeCore: Sendable {
         case targetPower(watts: Int16)
     }
 
+    public enum ShiftOutcome: Equatable, Sendable {
+        case shifted(toIndex: Int)
+        case atLimit
+        /// No engine: virtual shifting is off.
+        case disabled
+        /// Zwift is in ERG mode, which holds power regardless of gear.
+        case ignoredInERG
+    }
+
+    /// Road used when no simulation command applies (before Zwift takes
+    /// control, or after it resets) and an engine is set: flat, with Zwift's
+    /// usual solo rolling resistance and drag so gears still feel like gears.
+    public static let idleRoad = SimulationParameters(windSpeed: 0, grade: 0, crr: 0.004, cw: 0.51)
+
     public private(set) var zwiftHasControl = false
     public private(set) var zwiftMode: ZwiftMode = .idle
     public private(set) var isTrainerConnected = false
     public private(set) var trainerHasControl = false
 
-    public init() {}
+    public private(set) var engine: ShiftingEngine?
+    /// The engine's latest result, for the UI. Nil in ERG or without an engine.
+    public private(set) var lastEngineCommand: TrainerCommand?
+
+    /// When false, power is stripped from the data sent to Zwift, so Zwift
+    /// takes power from another source (e.g. the trainer over ANT+).
+    public var reportsPower = true
+
+    private var throttle = CommandThrottle()
+
+    public init(engine: ShiftingEngine? = nil) {
+        self.engine = engine
+    }
 
     // MARK: Zwift side
 
     /// A write to the virtual trainer's Control Point.
-    public mutating func handleZwiftWrite(_ bytes: [UInt8]) -> [Output] {
+    public mutating func handleZwiftWrite(_ bytes: [UInt8], at time: TimeInterval = 0) -> [Output] {
         guard let request = try? ControlPointRequest(bytes: bytes) else {
             let response = ControlPointResponse(requestOpcode: bytes.first ?? 0, result: .invalidParameter)
             return [.respondToZwift(response)]
         }
-        return handleZwift(request)
+        return handleZwift(request, at: time)
     }
 
-    public mutating func handleZwift(_ request: ControlPointRequest) -> [Output] {
+    public mutating func handleZwift(_ request: ControlPointRequest, at time: TimeInterval = 0) -> [Output] {
         func reply(_ result: ControlPointResponse.Result, then extra: [Output] = []) -> [Output] {
             [.respondToZwift(ControlPointResponse(to: request, result: result))] + extra
         }
@@ -50,23 +82,23 @@ public struct BridgeCore: Sendable {
 
         switch request {
         case .reset:
-            // Zwift gives up control. Leave the trainer under our control at a
-            // flat, moderate resistance rather than resetting it.
+            // Zwift gives up control. Leave the trainer under our control on a
+            // flat road rather than resetting it.
             zwiftHasControl = false
-            zwiftMode = .idle
-            return reply(.success, then: [.notifyZwiftStatus(.reset)] + toTrainer(trainerCommand))
+            setMode(.idle)
+            return reply(.success, then: [.notifyZwiftStatus(.reset)] + commandTrainer(at: time, force: true))
         case .startOrResume:
             return reply(.success, then: [.notifyZwiftStatus(.startedOrResumedByUser)])
         case .stopOrPause(let control):
             return reply(.success, then: [.notifyZwiftStatus(.stoppedOrPausedByUser(control))])
         case .setIndoorBikeSimulation(let parameters):
-            zwiftMode = .simulation(parameters)
+            setMode(.simulation(parameters))
             return reply(.success, then: [.notifyZwiftStatus(.indoorBikeSimulationParametersChanged(parameters))]
-                + toTrainer(trainerCommand))
+                + commandTrainer(at: time, force: true))
         case .setTargetPower(let watts):
-            zwiftMode = .targetPower(watts: watts)
+            setMode(.targetPower(watts: watts))
             return reply(.success, then: [.notifyZwiftStatus(.targetPowerChanged(watts: watts))]
-                + toTrainer(trainerCommand))
+                + commandTrainer(at: time, force: true))
         case .setWheelCircumference(let mm):
             // Acknowledged but not forwarded: the trainer's own wheel setting
             // determines the speed it reports, which the gear math relies on.
@@ -74,6 +106,28 @@ public struct BridgeCore: Sendable {
         case .requestControl, .setTargetSpeed, .setTargetInclination, .setTargetResistanceLevel,
              .setTargetHeartRate, .spinDownControl, .setTargetedCadence, .unsupported:
             return reply(.opCodeNotSupported)
+        }
+    }
+
+    // MARK: Shifting
+
+    /// Replaces the engine (nil turns virtual shifting off) and re-sends the
+    /// trainer command it implies.
+    public mutating func setEngine(_ newEngine: ShiftingEngine?, at time: TimeInterval = 0) -> [Output] {
+        engine = newEngine
+        lastEngineCommand = nil
+        throttle.reset()
+        return commandTrainer(at: time, force: true)
+    }
+
+    public mutating func shift(_ direction: Gearbox.Direction, at time: TimeInterval) -> (ShiftOutcome, [Output]) {
+        guard engine != nil else { return (.disabled, []) }
+        if case .targetPower = zwiftMode { return (.ignoredInERG, []) }
+        switch engine!.shift(direction, at: time) {
+        case .atLimit:
+            return (.atLimit, [])
+        case .shifted(let index):
+            return (.shifted(toIndex: index), commandTrainer(at: time, force: true))
         }
     }
 
@@ -91,13 +145,14 @@ public struct BridgeCore: Sendable {
         trainerHasControl = false
     }
 
-    public mutating func handleTrainerResponse(_ response: ControlPointResponse) -> [Output] {
+    public mutating func handleTrainerResponse(_ response: ControlPointResponse, at time: TimeInterval = 0) -> [Output] {
         let requestControl = ControlPointRequest.requestControl.opcode
         switch (response.requestOpcode, response.result) {
         case (requestControl, .success):
             trainerHasControl = true
             // Restore whatever Zwift last asked for (e.g. after a reconnect).
-            return [.sendToTrainer(.startOrResume), .sendToTrainer(trainerCommand)]
+            throttle.reset()
+            return [.sendToTrainer(.startOrResume)] + commandTrainer(at: time, force: true)
         case (let op, .controlNotPermitted) where op != requestControl:
             trainerHasControl = false
             return [.sendToTrainer(.requestControl)]
@@ -112,34 +167,73 @@ public struct BridgeCore: Sendable {
         return [.sendToTrainer(.requestControl)]
     }
 
-    public func handleTrainerData(_ data: IndoorBikeData) -> [Output] {
-        [.notifyZwiftData(data)]
-    }
-
-    // MARK: Helpers
-
-    /// The command the trainer should currently be holding.
-    public var trainerCommand: ControlPointRequest {
-        switch zwiftMode {
-        case .idle: .setIndoorBikeSimulation(.flat)
-        case .simulation(let p): .setIndoorBikeSimulation(p)
-        case .targetPower(let watts): .setTargetPower(watts: watts)
+    public mutating func handleTrainerData(_ data: IndoorBikeData, at time: TimeInterval = 0) -> [Output] {
+        var toZwift = data
+        if !reportsPower {
+            toZwift.instantaneousPower = nil
+            toZwift.averagePower = nil
         }
+        var outputs: [Output] = [.notifyZwiftData(toZwift)]
+
+        if engine != nil, let speed = data.speedMetersPerSecond {
+            engine!.updateSpeed(speed, at: time)
+            // ERG targets don't depend on speed; only re-run the engine in sim.
+            if case .targetPower = zwiftMode {} else {
+                outputs += commandTrainer(at: time, force: false)
+            }
+        }
+        return outputs
     }
 
-    private func toTrainer(_ request: ControlPointRequest) -> [Output] {
-        trainerHasControl ? [.sendToTrainer(request)] : []
+    // MARK: Trainer command
+
+    /// The command the trainer should currently be holding, and the engine's
+    /// result when the engine produced it.
+    public func trainerCommand(at time: TimeInterval = 0) -> (request: ControlPointRequest, engine: TrainerCommand?) {
+        let road: SimulationParameters
+        switch zwiftMode {
+        case .targetPower(let watts):
+            return (.setTargetPower(watts: watts), nil)
+        case .simulation(let p):
+            road = p
+        case .idle:
+            road = engine == nil ? .flat : Self.idleRoad
+        }
+        guard let engine else { return (.setIndoorBikeSimulation(road), nil) }
+        let command = engine.command(for: road, at: time)
+        return (.setIndoorBikeSimulation(command.parameters), command)
+    }
+
+    private mutating func setMode(_ mode: ZwiftMode) {
+        if case .targetPower = mode { lastEngineCommand = nil }
+        if case .targetPower = zwiftMode, mode != zwiftMode { throttle.reset() }
+        zwiftMode = mode
+    }
+
+    /// Sends the current command if the trainer is controllable. Without an
+    /// engine every call sends; with one, `CommandThrottle` drops repeats and
+    /// limits the rate, and `force` guarantees the next allowed send happens.
+    private mutating func commandTrainer(at time: TimeInterval, force: Bool) -> [Output] {
+        let (request, command) = trainerCommand(at: time)
+        if let command { lastEngineCommand = command }
+        guard trainerHasControl else { return [] }
+        if let command, !throttle.shouldSend(command.parameters, at: time, force: force) {
+            return []
+        }
+        return [.sendToTrainer(request)]
     }
 
     // MARK: Advertised capabilities
 
     /// Features the virtual trainer advertises: the trainer's data fields
     /// (copied when known) and only the targets the bridge handles.
-    public static func virtualFeature(copying trainer: FitnessMachineFeature?) -> FitnessMachineFeature {
-        FitnessMachineFeature(
-            machine: trainer?.machine ?? [.cadence, .totalDistance, .powerMeasurement, .elapsedTime],
-            targetSetting: [.power, .indoorBikeSimulation]
-        )
+    public static func virtualFeature(
+        copying trainer: FitnessMachineFeature?,
+        reportsPower: Bool = true
+    ) -> FitnessMachineFeature {
+        var machine = trainer?.machine ?? [.cadence, .totalDistance, .powerMeasurement, .elapsedTime]
+        if !reportsPower { machine.remove(.powerMeasurement) }
+        return FitnessMachineFeature(machine: machine, targetSetting: [.power, .indoorBikeSimulation])
     }
 
     public static let defaultPowerRange = SupportedPowerRange(minimum: 0, maximum: 1500, increment: 1)
