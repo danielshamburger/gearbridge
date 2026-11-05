@@ -57,10 +57,3 @@ cd TrainerCore && swift test
 | `TrainerCore/Sources/TrainerCore` | FTMS encoding and decoding, bridge logic, gearing, shifting, calibration |
 | `Virtual Shifting Bridge for Tacx Flux S — Plan.md` | Design plan and background |
 
-## Status
-
-The app has only been tested with the mock trainer. Still to check on a real Flux S:
-- whether ANT+ power keeps working while the app holds the trainer's Bluetooth connection;
-- how the trainer behaves under FTMS control;
-- calibration on the real trainer;
-- drafting in Zwift.
