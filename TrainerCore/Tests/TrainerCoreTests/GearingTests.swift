@@ -7,7 +7,49 @@ struct GearProfileTests {
     @Test func oneByOrdersEasiestFirst() throws {
         let profile = try GearProfile.oneBy(name: "test", chainring: 40, cassette: [20, 10, 40])
         #expect(profile.ratios == [1, 2, 4])
-        #expect(profile.startingGearIndex == 1)
+        #expect(profile.startingGearIndex == nil)
+        #expect(Gearbox(profile: profile).gearIndex == 1)   // no rider: middle gear
+        #expect(profile.label(ofGear: 2) == "40×10")
+    }
+
+    @Test func startsInRealGearUnlessChosen() throws {
+        let rider = RiderSetup()   // 50×17 = 2.94, closest is 42×14 = 3.0 (index 9)
+        #expect(GearProfile.standard.startingGear(for: rider) == 9)
+        #expect(try GearProfile.standard.withStartingGear(3).startingGear(for: rider) == 3)
+        #expect(ShiftingEngine.gradeOffset(profile: .standard, rider: rider).gearbox.gearIndex == 9)
+        let fast = RiderSetup(realChainring: 50, realCog: 11)
+        #expect(ShiftingEngine.gradeOffset(profile: .standard, rider: fast).gearbox.gearIndex == 11)  // 4.55 → 42×10
+    }
+
+    @Test func twoByMergesNearDuplicates() throws {
+        let profile = try GearProfile(
+            name: "2×",
+            drivetrain: Drivetrain(chainrings: [50, 34], cogs: [11, 12, 13, 14, 15, 17, 19, 21, 23, 25, 28])
+        )
+        #expect(profile.ratios.first == 34.0 / 28)
+        #expect(profile.ratios.last == 50.0 / 11)
+        for (a, b) in zip(profile.ratios, profile.ratios.dropFirst()) {
+            #expect(b >= a * 1.03)
+        }
+        #expect(profile.gearCount < 22)
+        #expect(profile.gearCount > 15)
+        #expect(profile.label(ofGear: 0) == "34×28")
+        #expect(profile.label(ofGear: profile.gearCount - 1) == "50×11")
+    }
+
+    @Test func rejectsBadTeeth() {
+        #expect(throws: GearProfileError.invalidTeeth) {
+            try GearProfile(name: "x", drivetrain: Drivetrain(chainrings: [], cogs: [11]))
+        }
+        #expect(throws: GearProfileError.invalidTeeth) {
+            try GearProfile(name: "x", drivetrain: Drivetrain(chainrings: [50], cogs: [0, 11]))
+        }
+    }
+
+    @Test func presetsAreValidAndDistinct() {
+        #expect(GearProfile.presets.count == 4)
+        #expect(Set(GearProfile.presets.map(\.id)).count == 4)
+        #expect(GearProfile.presets.allSatisfy { $0.drivetrain != nil && $0.startingGearIndex == nil })
     }
 
     @Test func rejectsInvalidProfiles() {
@@ -38,6 +80,14 @@ struct GearProfileTests {
     @Test func codableRoundTripAndValidation() throws {
         let data = try JSONEncoder().encode(GearProfile.standard)
         #expect(try JSONDecoder().decode(GearProfile.self, from: data) == .standard)
+        let chosen = try GearProfile.presets[1].withStartingGear(4)
+        #expect(try JSONDecoder().decode(GearProfile.self, from: JSONEncoder().encode(chosen)) == chosen)
+
+        // Saved before drivetrains existed.
+        let old = Data(#"{"id":"00000000-0000-0000-0000-000000000002","name":"old","ratios":[1,2],"wheelCircumference":2.1,"startingGearIndex":0}"#.utf8)
+        let decoded = try JSONDecoder().decode(GearProfile.self, from: old)
+        #expect(decoded.startingGearIndex == 0)
+        #expect(decoded.drivetrain == nil)
 
         let bad = Data(#"{"id":"00000000-0000-0000-0000-000000000002","name":"bad","ratios":[2,1],"wheelCircumference":2.1,"startingGearIndex":0}"#.utf8)
         #expect(throws: GearProfileError.self) {
@@ -86,7 +136,9 @@ struct GearboxTests {
         var box = Gearbox(profile: profile)
         box.shift(.up, at: 0)
         box.setProfile(.standard)
-        #expect(box.gearIndex == GearProfile.standard.startingGearIndex)
+        #expect(box.gearIndex == GearProfile.standard.gearCount / 2)
+        box.setProfile(.standard, startingGearIndex: 9)
+        #expect(box.gearIndex == 9)
         #expect(!box.isRamping(at: 0))
     }
 }

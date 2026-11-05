@@ -40,7 +40,8 @@ public struct ShiftingEngine: Sendable {
     }
 
     /// Strategy A with its neutral gear set to the gear closest to the real ratio,
-    /// so that gear feels like riding without the bridge.
+    /// so that gear feels like riding without the bridge. Both factories start in
+    /// the profile's starting gear, by default that same gear.
     public static func gradeOffset(
         profile: GearProfile,
         rider: RiderSetup,
@@ -49,7 +50,7 @@ public struct ShiftingEngine: Sendable {
     ) -> ShiftingEngine {
         let neutral = profile.closestGearIndex(toRatio: rider.realRatio)
         return ShiftingEngine(
-            gearbox: Gearbox(profile: profile),
+            gearbox: Gearbox(profile: profile, startingGearIndex: profile.startingGear(for: rider)),
             strategy: .gradeOffset(GradeOffsetStrategy(neutralGearIndex: neutral, gradePerGear: gradePerGear)),
             context: EngineContext(rider: rider, gradeScale: gradeScale)
         )
@@ -63,7 +64,7 @@ public struct ShiftingEngine: Sendable {
         gradeScale: Double = 1
     ) -> ShiftingEngine {
         ShiftingEngine(
-            gearbox: Gearbox(profile: profile),
+            gearbox: Gearbox(profile: profile, startingGearIndex: profile.startingGear(for: rider)),
             strategy: .forceScaling(ForceScalingStrategy(calibration: calibration)),
             context: EngineContext(rider: rider, gradeScale: gradeScale)
         )

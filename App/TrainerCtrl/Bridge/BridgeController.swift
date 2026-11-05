@@ -96,6 +96,36 @@ final class BridgeController {
         }
     }
 
+    /// The virtual drivetrain. Changing it starts again in its starting gear.
+    var profile: GearProfile {
+        didSet {
+            guard profile != oldValue else { return }
+            save(profile, forKey: Keys.gearProfile)
+            record(.event, "settings", [], "profile=\(profile.name) (\(profile.gearCount) gears)")
+            resetEngine()
+        }
+    }
+
+    /// The real bike on the trainer. Changing it starts again in the starting gear.
+    var rider: RiderSetup {
+        didSet {
+            guard rider != oldValue else { return }
+            save(rider, forKey: Keys.rider)
+            record(.event, "settings", [], "real gear=\(rider.realChainring)x\(rider.realCog)")
+            resetEngine()
+        }
+    }
+
+    /// Simple model: grade added per gear, as a fraction.
+    var gradePerGear: Double {
+        didSet {
+            guard gradePerGear != oldValue else { return }
+            UserDefaults.standard.set(gradePerGear, forKey: Keys.gradePerGear)
+            record(.event, "settings", [], String(format: "gradePerGear=%.4f", gradePerGear))
+            rebuildEngine()
+        }
+    }
+
     private(set) var savedCalibration: SavedCalibration?
 
     /// The calibration routine, while it runs and until its result is saved or discarded.
@@ -110,6 +140,8 @@ final class BridgeController {
     private(set) var gearNumber: Int?
     private(set) var gearCount = 0
     private(set) var gearRatio: Double?
+    /// "50×17" when the profile has teeth.
+    private(set) var gearLabel: String?
     private(set) var trainerGrade: Double?
     private(set) var limit: TrainerCommand.Limit = .none
     /// Bumped on every shift attempt so the UI can animate.
@@ -119,9 +151,6 @@ final class BridgeController {
         let outcome: BridgeCore.ShiftOutcome
         let serial: Int
     }
-
-    let profile = GearProfile.standard
-    let rider = RiderSetup()
 
     @ObservationIgnored private var core = BridgeCore()
     @ObservationIgnored private var log = PacketLog()
@@ -139,6 +168,17 @@ final class BridgeController {
         static let volumeButtonsShift = "volumeButtonsShift"
         static let shiftingModel = "shiftingModel"
         static let calibration = "trainerCalibration"
+        static let gearProfile = "gearProfile"
+        static let rider = "riderSetup"
+        static let gradePerGear = "gradePerGear"
+    }
+
+    private func save(_ value: some Encodable, forKey key: String) {
+        if let data = try? JSONEncoder().encode(value) { UserDefaults.standard.set(data, forKey: key) }
+    }
+
+    private static func load<T: Decodable>(_ type: T.Type, forKey key: String) -> T? {
+        UserDefaults.standard.data(forKey: key).flatMap { try? JSONDecoder().decode(T.self, from: $0) }
     }
 
     /// Monotonic seconds since launch, the bridge's clock.
@@ -154,7 +194,11 @@ final class BridgeController {
             Keys.virtualShifting: true,
             Keys.reportsPower: true,
             Keys.volumeButtonsShift: true,
+            Keys.gradePerGear: 0.01,
         ])
+        profile = Self.load(GearProfile.self, forKey: Keys.gearProfile) ?? .standard
+        rider = Self.load(RiderSetup.self, forKey: Keys.rider) ?? RiderSetup()
+        gradePerGear = defaults.double(forKey: Keys.gradePerGear)
         virtualShifting = defaults.bool(forKey: Keys.virtualShifting)
         reportsPower = defaults.bool(forKey: Keys.reportsPower)
         volumeButtonsShift = defaults.bool(forKey: Keys.volumeButtonsShift)
@@ -216,7 +260,14 @@ final class BridgeController {
         if activeModel == .calibrated, let calibration = usableCalibration {
             return .forceScaling(profile: profile, rider: rider, calibration: calibration)
         }
-        return .gradeOffset(profile: profile, rider: rider)
+        return .gradeOffset(profile: profile, rider: rider, gradePerGear: gradePerGear)
+    }
+
+    /// Swaps in a fresh engine, starting in the profile's starting gear.
+    private func resetEngine() {
+        guard virtualShifting else { return }
+        perform(core.setEngine(makeEngine(), at: now))
+        refreshShiftState()
     }
 
     /// Swaps the engine, keeping the selected gear.
@@ -236,10 +287,12 @@ final class BridgeController {
             gearNumber = engine.gearbox.gearNumber
             gearCount = engine.gearbox.profile.gearCount
             gearRatio = engine.gearbox.targetRatio
+            gearLabel = engine.gearbox.profile.label(ofGear: engine.gearbox.gearIndex)
         } else {
             gearNumber = nil
             gearCount = 0
             gearRatio = nil
+            gearLabel = nil
         }
         let command = core.lastEngineCommand
         trainerGrade = command?.parameters.grade

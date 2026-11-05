@@ -14,6 +14,7 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 shiftingSection
+                bikeSection
                 calibrationSection
                 trainerSection
                 zwiftSection
@@ -41,10 +42,30 @@ struct SettingsView: View {
             Toggle("Virtual shifting", isOn: $bridge.virtualShifting)
             Toggle("Shift with volume buttons", isOn: $bridge.volumeButtonsShift)
                 .disabled(!bridge.virtualShifting)
+            NavigationLink {
+                GearProfileView(bridge: bridge)
+            } label: {
+                LabeledContent("Gears", value: bridge.profile.name)
+            }
         } header: {
             Text("Shifting")
         } footer: {
             Text("With virtual shifting off, Zwift's grade goes to the trainer unchanged. Volume buttons: up is a harder gear, down is easier. Turned off, they change the volume as usual.")
+        }
+    }
+
+    private var bikeSection: some View {
+        Section {
+            Stepper(value: $bridge.rider.realChainring, in: 20...60) {
+                LabeledContent("Chainring", value: "\(bridge.rider.realChainring)T")
+            }
+            Stepper(value: $bridge.rider.realCog, in: 9...40) {
+                LabeledContent("Cog", value: "\(bridge.rider.realCog)T")
+            }
+        } header: {
+            Text("Real gear on the trainer")
+        } footer: {
+            Text("The chainring and cog your chain sits in. Leave it there while riding: the app needs it to know which virtual gear you're in.")
         }
     }
 
@@ -55,6 +76,11 @@ struct SettingsView: View {
             }
             .pickerStyle(.segmented)
             .disabled(bridge.usableCalibration == nil && bridge.shiftingModel == .simple)
+            if bridge.activeModel == .simple {
+                Stepper(value: $bridge.gradePerGear, in: 0.0025...0.03, step: 0.0025) {
+                    LabeledContent("Grade per gear", value: (bridge.gradePerGear * 100).formatted(.number.precision(.fractionLength(0...2))) + "%")
+                }
+            }
             if let saved = bridge.savedCalibration {
                 LabeledContent("Calibrated", value: saved.date.formatted(date: .abbreviated, time: .shortened))
                 CalibrationSummary(calibration: saved.calibration, maxGradeMeasured: saved.maxGradeMeasured)

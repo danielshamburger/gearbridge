@@ -101,7 +101,8 @@ struct ContentView: View {
 
     private var gearCaption: String {
         guard let n = bridge.gearNumber, let ratio = bridge.gearRatio else { return "Virtual shifting off" }
-        return String(format: "of %d · ratio %.2f", bridge.gearCount, ratio) + (n == bridge.gearCount ? " · top" : "")
+        let gear = bridge.gearLabel ?? String(format: "ratio %.2f", ratio)
+        return "of \(bridge.gearCount) · \(gear)" + (n == bridge.gearCount ? " · top" : "")
     }
 
     private var shiftingNote: String? {

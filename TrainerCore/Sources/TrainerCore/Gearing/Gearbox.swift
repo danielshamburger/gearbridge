@@ -25,11 +25,17 @@ public struct Gearbox: Sendable {
     private var rampFromRatio: Double
     private var rampStart: TimeInterval?
 
-    public init(profile: GearProfile, rampDuration: TimeInterval = 0.25) {
+    /// Starts in `startingGearIndex`, else the profile's starting gear, else the middle gear.
+    public init(profile: GearProfile, startingGearIndex: Int? = nil, rampDuration: TimeInterval = 0.25) {
+        let start = Self.clampedStart(startingGearIndex ?? profile.startingGearIndex, in: profile)
         self.profile = profile
-        self.gearIndex = profile.startingGearIndex
+        self.gearIndex = start
         self.rampDuration = rampDuration
-        self.rampFromRatio = profile.ratios[profile.startingGearIndex]
+        self.rampFromRatio = profile.ratios[start]
+    }
+
+    private static func clampedStart(_ index: Int?, in profile: GearProfile) -> Int {
+        min(max(index ?? profile.gearCount / 2, 0), profile.gearCount - 1)
     }
 
     /// The ratio of the selected gear, ignoring any ramp in progress.
@@ -67,9 +73,9 @@ public struct Gearbox: Sendable {
     }
 
     /// Switches profile and jumps to its starting gear without a ramp.
-    public mutating func setProfile(_ newProfile: GearProfile) {
+    public mutating func setProfile(_ newProfile: GearProfile, startingGearIndex: Int? = nil) {
         profile = newProfile
-        gearIndex = newProfile.startingGearIndex
+        gearIndex = Self.clampedStart(startingGearIndex ?? newProfile.startingGearIndex, in: newProfile)
         rampStart = nil
         rampFromRatio = targetRatio
     }

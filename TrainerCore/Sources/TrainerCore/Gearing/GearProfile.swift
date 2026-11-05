@@ -7,6 +7,40 @@ public enum GearProfileError: Error, Equatable, Sendable {
     case notStrictlyAscending(index: Int)
     case startingGearOutOfRange(Int)
     case nonPositiveWheelCircumference(Double)
+    case invalidTeeth
+}
+
+/// Chainrings and cogs a profile was built from, kept so it can be edited and
+/// each gear labelled (e.g. "50×17").
+public struct Drivetrain: Equatable, Sendable, Codable {
+    public var chainrings: [Int]
+    public var cogs: [Int]
+
+    public init(chainrings: [Int], cogs: [Int]) {
+        self.chainrings = chainrings
+        self.cogs = cogs
+    }
+
+    public struct Gear: Equatable, Sendable {
+        public var chainring: Int
+        public var cog: Int
+        public var ratio: Double { Double(chainring) / Double(cog) }
+        public var label: String { "\(chainring)×\(cog)" }
+    }
+
+    /// Every chainring–cog combination as one sequence, easiest first. A gear
+    /// less than `minimumStep` (fractional) harder than the previous one kept is
+    /// dropped, so a 2× drivetrain's overlapping gears don't make useless shifts.
+    public func gears(minimumStep: Double = 0.03) -> [Gear] {
+        let all = chainrings.flatMap { ring in cogs.map { Gear(chainring: ring, cog: $0) } }
+            .sorted { $0.ratio < $1.ratio }
+        var kept: [Gear] = []
+        for gear in all {
+            if let last = kept.last, gear.ratio < last.ratio * (1 + minimumStep) || gear.ratio <= last.ratio { continue }
+            kept.append(gear)
+        }
+        return kept
+    }
 }
 
 /// A user-defined virtual drivetrain: one sequential list of gears, easiest first.
@@ -17,14 +51,19 @@ public struct GearProfile: Equatable, Sendable, Identifiable {
     public let ratios: [Double]
     /// Metres. Used to show virtual speed and expected cadence.
     public let wheelCircumference: Double
-    public let startingGearIndex: Int
+    /// The gear a ride starts in; nil starts in the gear closest to the real one
+    /// (see `startingGear(for:)`).
+    public let startingGearIndex: Int?
+    /// The teeth the ratios came from, if the profile was built from them.
+    public let drivetrain: Drivetrain?
 
     public init(
         id: UUID = UUID(),
         name: String,
         ratios: [Double],
         wheelCircumference: Double = 2.1,
-        startingGearIndex: Int? = nil
+        startingGearIndex: Int? = nil,
+        drivetrain: Drivetrain? = nil
     ) throws {
         guard !ratios.isEmpty else { throw GearProfileError.noGears }
         for (i, r) in ratios.enumerated() {
@@ -34,14 +73,39 @@ public struct GearProfile: Equatable, Sendable, Identifiable {
         guard wheelCircumference > 0, wheelCircumference.isFinite else {
             throw GearProfileError.nonPositiveWheelCircumference(wheelCircumference)
         }
-        let start = startingGearIndex ?? ratios.count / 2
-        guard ratios.indices.contains(start) else { throw GearProfileError.startingGearOutOfRange(start) }
+        if let start = startingGearIndex, !ratios.indices.contains(start) {
+            throw GearProfileError.startingGearOutOfRange(start)
+        }
 
         self.id = id
         self.name = name
         self.ratios = ratios
         self.wheelCircumference = wheelCircumference
-        self.startingGearIndex = start
+        self.startingGearIndex = startingGearIndex
+        self.drivetrain = drivetrain
+    }
+
+    /// Builds a profile from chainrings and cogs (any order), merging near-duplicate
+    /// gears (see `Drivetrain.gears(minimumStep:)`).
+    public init(
+        id: UUID = UUID(),
+        name: String,
+        drivetrain: Drivetrain,
+        minimumStep: Double = 0.03,
+        wheelCircumference: Double = 2.1,
+        startingGearIndex: Int? = nil
+    ) throws {
+        guard !drivetrain.chainrings.isEmpty, !drivetrain.cogs.isEmpty,
+              (drivetrain.chainrings + drivetrain.cogs).allSatisfy({ $0 > 0 })
+        else { throw GearProfileError.invalidTeeth }
+        try self.init(
+            id: id,
+            name: name,
+            ratios: drivetrain.gears(minimumStep: minimumStep).map(\.ratio),
+            wheelCircumference: wheelCircumference,
+            startingGearIndex: startingGearIndex,
+            drivetrain: drivetrain
+        )
     }
 
     /// Builds a profile from a single chainring and a cassette (cogs in any order).
@@ -59,8 +123,26 @@ public struct GearProfile: Equatable, Sendable, Identifiable {
             name: name,
             ratios: ratios,
             wheelCircumference: wheelCircumference,
-            startingGearIndex: startingGearIndex
+            startingGearIndex: startingGearIndex,
+            drivetrain: Drivetrain(chainrings: [chainring], cogs: cassette)
         )
+    }
+
+    /// A copy with a different starting gear (nil: match the real gear).
+    public func withStartingGear(_ index: Int?) throws -> GearProfile {
+        try GearProfile(id: id, name: name, ratios: ratios, wheelCircumference: wheelCircumference,
+                        startingGearIndex: index, drivetrain: drivetrain)
+    }
+
+    /// The gear a ride starts in for this rider.
+    public func startingGear(for rider: RiderSetup) -> Int {
+        startingGearIndex ?? closestGearIndex(toRatio: rider.realRatio)
+    }
+
+    /// "50×17" for a profile built from teeth; nil otherwise.
+    public func label(ofGear index: Int) -> String? {
+        guard ratios.indices.contains(index), let drivetrain else { return nil }
+        return drivetrain.gears(minimumStep: 0).first { abs($0.ratio - ratios[index]) < 1e-9 }?.label
     }
 
     public var gearCount: Int { ratios.count }
@@ -77,11 +159,32 @@ public struct GearProfile: Equatable, Sendable, Identifiable {
         chainring: 42,
         cassette: [10, 12, 14, 16, 18, 21, 24, 28, 32, 36, 42, 52]
     )
+
+    /// Ready-made profiles. Fixed ids so a saved choice still matches after an update.
+    public static let presets: [GearProfile] = [
+        standard,
+        try! GearProfile(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
+            name: "2× 50/34, 11–28",
+            drivetrain: Drivetrain(chainrings: [50, 34], cogs: [11, 12, 13, 14, 15, 17, 19, 21, 23, 25, 28])
+        ),
+        try! GearProfile(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000003")!,
+            name: "2× 52/36, 11–30",
+            drivetrain: Drivetrain(chainrings: [52, 36], cogs: [11, 12, 13, 14, 15, 17, 19, 21, 24, 27, 30])
+        ),
+        try! .oneBy(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000004")!,
+            name: "1× 40T, 11–42",
+            chainring: 40,
+            cassette: [11, 13, 15, 17, 19, 21, 24, 28, 32, 36, 42]
+        ),
+    ]
 }
 
 extension GearProfile: Codable {
     private enum CodingKeys: String, CodingKey {
-        case id, name, ratios, wheelCircumference, startingGearIndex
+        case id, name, ratios, wheelCircumference, startingGearIndex, drivetrain
     }
 
     /// Decoding runs the same validation as `init`, so a corrupt saved profile throws.
@@ -92,7 +195,8 @@ extension GearProfile: Codable {
             name: try c.decode(String.self, forKey: .name),
             ratios: try c.decode([Double].self, forKey: .ratios),
             wheelCircumference: try c.decode(Double.self, forKey: .wheelCircumference),
-            startingGearIndex: try c.decode(Int.self, forKey: .startingGearIndex)
+            startingGearIndex: try c.decodeIfPresent(Int.self, forKey: .startingGearIndex),
+            drivetrain: try c.decodeIfPresent(Drivetrain.self, forKey: .drivetrain)
         )
     }
 
@@ -102,7 +206,8 @@ extension GearProfile: Codable {
         try c.encode(name, forKey: .name)
         try c.encode(ratios, forKey: .ratios)
         try c.encode(wheelCircumference, forKey: .wheelCircumference)
-        try c.encode(startingGearIndex, forKey: .startingGearIndex)
+        try c.encodeIfPresent(startingGearIndex, forKey: .startingGearIndex)
+        try c.encodeIfPresent(drivetrain, forKey: .drivetrain)
     }
 }
 
