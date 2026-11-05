@@ -2,32 +2,46 @@ import SwiftUI
 import TrainerCore
 import UIKit
 
+/// The riding screen: gear, shifting and live numbers. Setup lives in `SettingsView`.
 struct ContentView: View {
     @State private var bridge = BridgeController()
-    @State private var shareItem: ShareItem?
-    @State private var exportError: String?
     @State private var volumeShifter = VolumeButtonShifter()
     @State private var limitFlash = false
+    @State private var showingSettings = false
 
     var body: some View {
         NavigationStack {
             List {
                 gearSection
                 liveSection
-                shiftingSection
-                trainerSection
-                zwiftSection
-                logSection
+                statusSection
             }
             .navigationTitle("TrainerCtrl")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("Settings")
+                }
+            }
         }
-        .background { VolumeButtonHost(shifter: volumeShifter).frame(width: 1, height: 1) }
+        .background {
+            // Only on screen while volume shifting is on: it also hides the
+            // system volume HUD, which should appear normally otherwise.
+            if volumeShiftingActive {
+                VolumeButtonHost(shifter: volumeShifter).frame(width: 1, height: 1)
+            }
+        }
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
             volumeShifter.onShift = { [bridge] direction in bridge.shift(direction) }
-            volumeShifter.start()
+            updateVolumeShifter()
         }
+        .onChange(of: volumeShiftingActive) { updateVolumeShifter() }
         .onChange(of: bridge.lastShift) { _, event in
             guard let event else { return }
             if case .shifted = event.outcome { return }
@@ -37,12 +51,15 @@ struct ContentView: View {
                 limitFlash = false
             }
         }
-        .sheet(item: $shareItem) { item in ActivityView(items: [item.url]) }
-        .alert("Export failed", isPresented: .constant(exportError != nil)) {
-            Button("OK") { exportError = nil }
-        } message: {
-            Text(exportError ?? "")
-        }
+        .sheet(isPresented: $showingSettings) { SettingsView(bridge: bridge) }
+    }
+
+    private var volumeShiftingActive: Bool {
+        bridge.volumeButtonsShift && bridge.virtualShifting
+    }
+
+    private func updateVolumeShifter() {
+        if volumeShiftingActive { volumeShifter.start() } else { volumeShifter.stop() }
     }
 
     // MARK: Gear
@@ -124,55 +141,18 @@ struct ContentView: View {
         }
     }
 
-    private var shiftingSection: some View {
-        Section {
-            Toggle("Virtual shifting", isOn: $bridge.virtualShifting)
-            Toggle("Send power to Zwift", isOn: $bridge.reportsPower)
-        } header: {
-            Text("Shifting")
-        } footer: {
-            Text("Volume buttons shift too: up is harder, down is easier. Turn off \"Send power to Zwift\" if Zwift takes power directly from the trainer over ANT+ (needed for \"power meter required\" events), then re-pair in Zwift.")
-        }
-    }
+    // MARK: Status
 
-    private var trainerSection: some View {
-        Section("Trainer") {
-            Picker("Source", selection: $bridge.source) {
-                ForEach(TrainerSource.allCases) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            LabeledContent("Status", value: bridge.trainerState.label)
+    private var statusSection: some View {
+        Section {
+            LabeledContent("Trainer", value: bridge.trainerState.label)
+            LabeledContent("Zwift", value: bridge.zwiftLabel)
             if bridge.source == .mock {
                 VStack(alignment: .leading) {
                     Text("Mock cadence: \(Int(bridge.mockCadence)) rpm")
                     Slider(value: $bridge.mockCadence, in: 0...130, step: 1)
                 }
             }
-        }
-    }
-
-    private var zwiftSection: some View {
-        Section {
-            LabeledContent("Advertised as", value: BridgeController.advertisedName)
-            LabeledContent("Status", value: bridge.zwiftLabel)
-        } header: {
-            Text("Zwift")
-        } footer: {
-            Text("In Zwift on the Mac, pair Power, Cadence and Controllable to \(BridgeController.advertisedName). Keep this app open.")
-        }
-    }
-
-    private var logSection: some View {
-        Section("Packet log") {
-            LabeledContent("Entries", value: "\(bridge.logCount)")
-            Button("Export CSV") {
-                do {
-                    shareItem = ShareItem(url: try bridge.writeLogFile())
-                } catch {
-                    exportError = error.localizedDescription
-                }
-            }
-            Button("Clear log", role: .destructive) { bridge.clearLog() }
         }
     }
 }
@@ -194,19 +174,4 @@ private struct Readout: View {
         }
         .frame(maxWidth: .infinity)
     }
-}
-
-private struct ShareItem: Identifiable {
-    let url: URL
-    var id: URL { url }
-}
-
-private struct ActivityView: UIViewControllerRepresentable {
-    let items: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }

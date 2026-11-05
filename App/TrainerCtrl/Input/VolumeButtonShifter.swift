@@ -57,6 +57,8 @@ final class VolumeButtonShifter: NSObject {
         observation = nil
         if let activeObserver { NotificationCenter.default.removeObserver(activeObserver) }
         activeObserver = nil
+        isRestoring = false
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
     private func activateSession() {

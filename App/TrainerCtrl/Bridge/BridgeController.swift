@@ -56,6 +56,15 @@ final class BridgeController {
         }
     }
 
+    /// Volume buttons shift gears (only while virtual shifting is on).
+    var volumeButtonsShift: Bool {
+        didSet {
+            guard volumeButtonsShift != oldValue else { return }
+            UserDefaults.standard.set(volumeButtonsShift, forKey: Keys.volumeButtonsShift)
+            record(.event, "settings", [], "volumeButtonsShift=\(volumeButtonsShift)")
+        }
+    }
+
     private(set) var gearNumber: Int?
     private(set) var gearCount = 0
     private(set) var gearRatio: Double?
@@ -84,6 +93,7 @@ final class BridgeController {
     private enum Keys {
         static let virtualShifting = "virtualShifting"
         static let reportsPower = "reportsPower"
+        static let volumeButtonsShift = "volumeButtonsShift"
     }
 
     /// Monotonic seconds since launch, the bridge's clock.
@@ -95,9 +105,14 @@ final class BridgeController {
     init(source: TrainerSource = .mock) {
         self.source = source
         let defaults = UserDefaults.standard
-        defaults.register(defaults: [Keys.virtualShifting: true, Keys.reportsPower: true])
+        defaults.register(defaults: [
+            Keys.virtualShifting: true,
+            Keys.reportsPower: true,
+            Keys.volumeButtonsShift: true,
+        ])
         virtualShifting = defaults.bool(forKey: Keys.virtualShifting)
         reportsPower = defaults.bool(forKey: Keys.reportsPower)
+        volumeButtonsShift = defaults.bool(forKey: Keys.volumeButtonsShift)
         core.reportsPower = reportsPower
         peripheral.feature = BridgeCore.virtualFeature(copying: nil, reportsPower: reportsPower)
         if virtualShifting { _ = core.setEngine(makeEngine()) }
