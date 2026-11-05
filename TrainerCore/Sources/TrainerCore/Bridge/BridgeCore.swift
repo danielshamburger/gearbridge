@@ -61,6 +61,40 @@ public struct BridgeCore: Sendable {
 
     private var throttle = CommandThrottle()
 
+    // MARK: Failure handling state
+
+    /// Why the bridge stopped following Zwift on its own, if it did.
+    public enum Fallback: Equatable, Sendable {
+        case none
+        /// Zwift disconnected (unsubscribed) for longer than `zwiftDisconnectGrace`.
+        case zwiftDisconnected
+        /// No simulation command for `zwiftQuietTimeout`; eased to a flat road.
+        case zwiftQuiet
+    }
+
+    public struct Timeouts: Equatable, Sendable {
+        /// No trainer data for this long: send Zwift zeros instead of going silent.
+        public var trainerDataStale: TimeInterval = 2
+        /// Zwift gone this long: release the trainer to a flat road.
+        public var zwiftDisconnectGrace: TimeInterval = 5
+        /// No simulation command this long: ease to a flat road. Zwift only
+        /// sends on change, and was seen going ~40 s without one on flat roads,
+        /// so this is long. ERG never times out (targets are held for minutes).
+        public var zwiftQuietTimeout: TimeInterval = 120
+
+        public init() {}
+    }
+
+    public var timeouts = Timeouts()
+    public private(set) var fallback: Fallback = .none
+    /// True while trainer data is stale and Zwift is being sent zeros.
+    public private(set) var sendingZeros = false
+
+    private var lastTrainerDataTime: TimeInterval?
+    private var lastZwiftCommandTime: TimeInterval?
+    private var zwiftConnected = false
+    private var zwiftDisconnectedSince: TimeInterval?
+
     public init(engine: ShiftingEngine? = nil) {
         self.engine = engine
     }
@@ -81,6 +115,8 @@ public struct BridgeCore: Sendable {
             [.respondToZwift(ControlPointResponse(to: request, result: result))] + extra
         }
 
+        lastZwiftCommandTime = time
+        fallback = .none
         if request == .requestControl {
             zwiftHasControl = true
             return reply(.success)
@@ -183,6 +219,8 @@ public struct BridgeCore: Sendable {
     }
 
     public mutating func handleTrainerData(_ data: IndoorBikeData, at time: TimeInterval = 0) -> [Output] {
+        lastTrainerDataTime = time
+        sendingZeros = false
         var toZwift = data
         if !reportsPower {
             toZwift.instantaneousPower = nil
@@ -196,6 +234,44 @@ public struct BridgeCore: Sendable {
             if case .targetPower = zwiftMode {} else if trainerOverride == nil {
                 outputs += commandTrainer(at: time, force: false)
             }
+        }
+        return outputs
+    }
+
+    // MARK: Failure handling
+
+    /// Zwift subscribed to or left the virtual trainer.
+    public mutating func zwiftConnectionChanged(connected: Bool, at time: TimeInterval) {
+        guard connected != zwiftConnected else { return }
+        zwiftConnected = connected
+        zwiftDisconnectedSince = connected ? nil : time
+    }
+
+    /// Call about once a second. Sends Zwift zeros while trainer data is
+    /// stale, and eases the trainer to a flat road if Zwift has gone away or
+    /// gone quiet, rather than holding the last (possibly steep) grade.
+    public mutating func tick(at time: TimeInterval) -> [Output] {
+        var outputs: [Output] = []
+
+        if time - (lastTrainerDataTime ?? -.infinity) >= timeouts.trainerDataStale {
+            sendingZeros = true
+            var zero = IndoorBikeData(instantaneousSpeed: 0, instantaneousCadence: 0, instantaneousPower: 0)
+            if !reportsPower { zero.instantaneousPower = nil }
+            outputs.append(.notifyZwiftData(zero))
+        }
+
+        if let since = zwiftDisconnectedSince, time - since >= timeouts.zwiftDisconnectGrace,
+           zwiftHasControl || zwiftMode != .idle {
+            zwiftHasControl = false
+            setMode(.idle)
+            fallback = .zwiftDisconnected
+            outputs += commandTrainer(at: time, force: true)
+        } else if case .simulation = zwiftMode,
+                  time - (lastZwiftCommandTime ?? time) >= timeouts.zwiftQuietTimeout {
+            // Zwift keeps control; its next command resumes normally.
+            setMode(.idle)
+            fallback = .zwiftQuiet
+            outputs += commandTrainer(at: time, force: true)
         }
         return outputs
     }

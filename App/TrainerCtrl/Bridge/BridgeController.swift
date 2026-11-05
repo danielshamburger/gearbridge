@@ -47,6 +47,10 @@ final class BridgeController {
     private(set) var latestData: IndoorBikeData?
     private(set) var zwiftMode: BridgeCore.ZwiftMode = .idle
     private(set) var logCount = 0
+    /// Set when the bridge stopped following Zwift on its own (see `BridgeCore.Fallback`).
+    private(set) var fallback: BridgeCore.Fallback = .none
+    /// Trainer data is stale and Zwift is being sent zeros.
+    private(set) var sendingZeros = false
 
     // MARK: Shifting state (for the UI)
 
@@ -127,6 +131,7 @@ final class BridgeController {
     @ObservationIgnored private var trainerFeature: FitnessMachineFeature?
     @ObservationIgnored private let haptics = ShiftHaptics()
     @ObservationIgnored private let clockStart = ContinuousClock.now
+    @ObservationIgnored private var tickTask: Task<Void, Never>?
 
     private enum Keys {
         static let virtualShifting = "virtualShifting"
@@ -163,11 +168,17 @@ final class BridgeController {
         peripheral.onChange = { [weak self] in
             guard let self else { return }
             self.zwiftState = self.peripheral.state
-            self.zwiftSubscribers = self.peripheral.subscriberCount
+            if self.zwiftSubscribers != self.peripheral.subscriberCount {
+                self.zwiftSubscribers = self.peripheral.subscriberCount
+                let connected = self.zwiftSubscribers > 0
+                self.record(.event, "zwift", [], connected ? "connected" : "disconnected")
+                self.core.zwiftConnectionChanged(connected: connected, at: self.now)
+            }
         }
         peripheral.start()
         connectTrainer()
         refreshShiftState()
+        startTicking()
     }
 
     // MARK: Shifting
@@ -233,6 +244,53 @@ final class BridgeController {
         let command = core.lastEngineCommand
         trainerGrade = command?.parameters.grade
         limit = command?.limit ?? .none
+    }
+
+    // MARK: Failure handling
+
+    /// Once a second: zeros to Zwift while the trainer is silent, and the
+    /// Zwift-gone / Zwift-quiet fallbacks.
+    private func startTicking() {
+        tickTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                self?.tick()
+            }
+        }
+    }
+
+    private func tick() {
+        let before = core.fallback
+        perform(core.tick(at: now))
+        if core.sendingZeros != sendingZeros {
+            sendingZeros = core.sendingZeros
+            record(.event, "failsafe", [], sendingZeros ? "no trainer data: sending zeros to Zwift" : "trainer data resumed")
+        }
+        if core.fallback != before {
+            switch core.fallback {
+            case .zwiftDisconnected: record(.event, "failsafe", [], "Zwift gone: trainer eased to flat")
+            case .zwiftQuiet: record(.event, "failsafe", [], "Zwift quiet: trainer eased to flat")
+            case .none: break
+            }
+            zwiftMode = core.zwiftMode
+            refreshShiftState()
+        }
+        fallback = core.fallback
+    }
+
+    /// A one-line warning for the main screen, if something needs attention.
+    var alertLabel: String? {
+        if calibrationRun?.phase.isActive == true { return "Calibrating: Zwift's commands are on hold." }
+        if sendingZeros {
+            return trainerState.isConnected
+                ? "No data from the trainer. Zwift is getting zeros until it's back."
+                : "Trainer not connected (\(trainerState.label.lowercased())). Zwift is getting zeros meanwhile."
+        }
+        switch fallback {
+        case .zwiftDisconnected: return "Zwift disconnected, so the trainer was eased to a flat road."
+        case .zwiftQuiet: return "No commands from Zwift for 2 minutes, so the trainer was eased to a flat road."
+        case .none: return nil
+        }
     }
 
     // MARK: Labels
@@ -340,6 +398,7 @@ final class BridgeController {
         record(.fromZwift, FTMSUUID.controlPoint, bytes, summary)
         perform(core.handleZwiftWrite(bytes, at: now))
         zwiftMode = core.zwiftMode
+        fallback = core.fallback
         refreshShiftState()
     }
 

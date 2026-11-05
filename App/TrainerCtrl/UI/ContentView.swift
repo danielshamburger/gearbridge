@@ -145,6 +145,11 @@ struct ContentView: View {
 
     private var statusSection: some View {
         Section {
+            if let alert = bridge.alertLabel {
+                Label(alert, systemImage: "exclamationmark.triangle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            }
             LabeledContent("Trainer", value: bridge.trainerState.label)
             LabeledContent("Zwift", value: bridge.zwiftLabel)
             if bridge.source == .mock {
