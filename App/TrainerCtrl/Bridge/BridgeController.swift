@@ -34,13 +34,15 @@ final class BridgeController {
     static let advertisedName = "TrainerCtrl"
 
     var source: TrainerSource {
-        didSet { if source != oldValue { connectTrainer() } }
+        didSet { if source != oldValue, isRiding { connectTrainer() } }
     }
 
     var mockCadence: Double = 85 {
         didSet { (link as? MockTrainerLink)?.cadence = mockCadence }
     }
 
+    /// A ride is on: trainer connected, Zwift advertised to, packets logged.
+    private(set) var isRiding = false
     private(set) var trainerState: TrainerLinkState = .idle
     private(set) var zwiftState: VirtualTrainerPeripheral.State = .starting
     private(set) var zwiftSubscribers = 0
@@ -205,9 +207,8 @@ final class BridgeController {
         shiftingModel = defaults.string(forKey: Keys.shiftingModel).flatMap(ShiftingModel.init) ?? .simple
         savedCalibration = defaults.data(forKey: Keys.calibration)
             .flatMap { try? JSONDecoder().decode(SavedCalibration.self, from: $0) }
-        core.reportsPower = reportsPower
         peripheral.feature = BridgeCore.virtualFeature(copying: nil, reportsPower: reportsPower)
-        if virtualShifting { _ = core.setEngine(makeEngine()) }
+        resetCore()
         peripheral.onControlPointWrite = { [weak self] bytes in self?.handleZwiftWrite(bytes) }
         peripheral.onChange = { [weak self] in
             guard let self else { return }
@@ -219,10 +220,52 @@ final class BridgeController {
                 self.core.zwiftConnectionChanged(connected: connected, at: self.now)
             }
         }
+        refreshShiftState()
+    }
+
+    // MARK: Ride
+
+    /// Starts a fresh log, advertises to Zwift and connects the trainer.
+    func startRide() {
+        guard !isRiding else { return }
+        isRiding = true
+        clearLog()
+        record(.event, "ride", [], "start")
+        resetCore()
+        refreshShiftState()
         peripheral.start()
         connectTrainer()
-        refreshShiftState()
         startTicking()
+    }
+
+    /// Disconnects the trainer and stops advertising. The log is kept for export.
+    func endRide() {
+        guard isRiding else { return }
+        if calibrationRun?.phase.isActive == true { cancelCalibration() }
+        calibrationRun = nil
+        tickTask?.cancel()
+        tickTask = nil
+        link?.onEvent = nil
+        link?.stop()
+        link = nil
+        peripheral.stop()
+        record(.event, "ride", [], "end")
+        isRiding = false
+        trainerState = .idle
+        latestData = nil
+        trainerFeature = nil
+        zwiftMode = .idle
+        fallback = .none
+        sendingZeros = false
+        resetCore()
+        refreshShiftState()
+    }
+
+    /// A bridge with no trainer or Zwift state, using the current settings.
+    private func resetCore() {
+        core = BridgeCore()
+        core.reportsPower = reportsPower
+        if virtualShifting { _ = core.setEngine(makeEngine()) }
     }
 
     // MARK: Shifting
@@ -350,6 +393,7 @@ final class BridgeController {
 
     var zwiftLabel: String {
         switch zwiftState {
+        case .stopped: "Not advertising"
         case .starting: "Starting…"
         case .unavailable(let reason), .failed(let reason): reason
         case .advertising: zwiftSubscribers > 0 ? "Zwift connected" : "Waiting for Zwift to pair"

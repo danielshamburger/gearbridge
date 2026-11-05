@@ -99,7 +99,11 @@ private struct IntroView: View {
                 Button("Start calibration") { bridge.startCalibration() }
                     .disabled(!bridge.canCalibrate)
             } footer: {
-                if !bridge.trainerState.isConnected { Text("Connect the trainer first.") }
+                if !bridge.isRiding {
+                    Text("Start a ride first, so the trainer is connected.")
+                } else if !bridge.trainerState.isConnected {
+                    Text("Waiting for the trainer to connect.")
+                }
             }
         }
     }

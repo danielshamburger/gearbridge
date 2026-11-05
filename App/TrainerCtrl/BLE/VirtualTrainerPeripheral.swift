@@ -9,6 +9,7 @@ import TrainerCore
 @MainActor
 final class VirtualTrainerPeripheral: NSObject {
     enum State: Equatable {
+        case stopped
         case starting
         case unavailable(String)
         case advertising
@@ -23,7 +24,7 @@ final class VirtualTrainerPeripheral: NSObject {
     var powerRange = BridgeCore.defaultPowerRange
     var resistanceRange = BridgeCore.defaultResistanceRange
 
-    private(set) var state: State = .starting { didSet { onChange?() } }
+    private(set) var state: State = .stopped { didSet { onChange?() } }
     /// Centrals subscribed to Indoor Bike Data, i.e. Zwift actually listening.
     private(set) var subscriberCount = 0 { didSet { onChange?() } }
 
@@ -54,7 +55,21 @@ final class VirtualTrainerPeripheral: NSObject {
 
     func start() {
         guard manager == nil else { return }
+        state = .starting
         manager = CBPeripheralManager(delegate: self, queue: nil)
+    }
+
+    /// Stops advertising and drops the service, so Zwift loses the trainer.
+    func stop() {
+        guard let manager else { return }
+        manager.stopAdvertising()
+        manager.removeAllServices()
+        manager.delegate = nil
+        self.manager = nil
+        serviceAdded = false
+        pending = []
+        subscriberCount = 0
+        state = .stopped
     }
 
     func notify(_ data: IndoorBikeData) {

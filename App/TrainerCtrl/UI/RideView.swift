@@ -3,11 +3,12 @@ import TrainerCore
 import UIKit
 
 /// The riding screen: gear, shifting and live numbers. Setup lives in `SettingsView`.
-struct ContentView: View {
-    @State private var bridge = BridgeController()
+struct RideView: View {
+    @Bindable var bridge: BridgeController
     @State private var volumeShifter = VolumeButtonShifter()
     @State private var limitFlash = false
     @State private var showingSettings = false
+    @State private var confirmingEnd = false
 
     var body: some View {
         NavigationStack {
@@ -19,6 +20,14 @@ struct ContentView: View {
             .navigationTitle("TrainerCtrl")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("End ride", role: .destructive) { confirmingEnd = true }
+                        .confirmationDialog("End this ride?", isPresented: $confirmingEnd, titleVisibility: .visible) {
+                            Button("End ride", role: .destructive) { bridge.endRide() }
+                        } message: {
+                            Text("The trainer disconnects and Zwift loses it. The packet log is kept for export.")
+                        }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showingSettings = true
@@ -40,6 +49,11 @@ struct ContentView: View {
             UIApplication.shared.isIdleTimerDisabled = true
             volumeShifter.onShift = { [bridge] direction in bridge.shift(direction) }
             updateVolumeShifter()
+        }
+        .onDisappear {
+            UIApplication.shared.isIdleTimerDisabled = false
+            volumeShifter.onShift = nil
+            volumeShifter.stop()
         }
         .onChange(of: volumeShiftingActive) { updateVolumeShifter() }
         .onChange(of: bridge.lastShift) { _, event in
