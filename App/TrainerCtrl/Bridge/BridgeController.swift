@@ -142,7 +142,7 @@ final class BridgeController {
     private(set) var gearNumber: Int?
     private(set) var gearCount = 0
     private(set) var gearRatio: Double?
-    /// "50×17" when the profile has teeth.
+    /// "42×18" when the profile has teeth.
     private(set) var gearLabel: String?
     private(set) var trainerGrade: Double?
     private(set) var limit: TrainerCommand.Limit = .none

@@ -3,7 +3,7 @@ import Testing
 
 @Suite("Calibration routine")
 struct CalibrationRunTests {
-    let rider = RiderSetup() // 50×17
+    let rider = RiderSetup.fiftySeventeen // 50×17
 
     @Test func planKeepsStepsUnderPowerCap() {
         let steps = CalibrationPlan().steps(for: rider)
@@ -116,7 +116,7 @@ struct CalibrationRunTests {
 @Suite("Bridge trainer override")
 struct BridgeOverrideTests {
     @Test func overrideHoldsTrainerUntilCleared() {
-        var bridge = BridgeCore(engine: .gradeOffset(profile: .standard, rider: RiderSetup()))
+        var bridge = BridgeCore(engine: .gradeOffset(profile: .standard, rider: RiderSetup.fiftySeventeen))
         _ = bridge.trainerDidConnect()
         _ = bridge.handleTrainerResponse(.init(to: .requestControl, result: .success), at: 0)
         _ = bridge.handleZwift(.requestControl, at: 0)

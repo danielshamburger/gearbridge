@@ -2,6 +2,11 @@ import Foundation
 import Testing
 @testable import TrainerCore
 
+extension RiderSetup {
+    /// The rider many tests' numbers were worked out for.
+    static let fiftySeventeen = RiderSetup(realChainring: 50, realCog: 17)
+}
+
 @Suite("Gear profiles")
 struct GearProfileTests {
     @Test func oneByOrdersEasiestFirst() throws {
@@ -12,8 +17,15 @@ struct GearProfileTests {
         #expect(profile.label(ofGear: 2) == "40×10")
     }
 
+    @Test func defaultRealGearIs42x18() {
+        let rider = RiderSetup()
+        #expect(rider.realChainring == 42 && rider.realCog == 18)
+        // 42×18 is itself a gear in the standard profile.
+        #expect(GearProfile.standard.label(ofGear: GearProfile.standard.startingGear(for: rider)) == "42×18")
+    }
+
     @Test func startsInRealGearUnlessChosen() throws {
-        let rider = RiderSetup()   // 50×17 = 2.94, closest is 42×14 = 3.0 (index 9)
+        let rider = RiderSetup.fiftySeventeen   // 50×17 = 2.94, closest is 42×14 = 3.0 (index 9)
         #expect(GearProfile.standard.startingGear(for: rider) == 9)
         #expect(try GearProfile.standard.withStartingGear(3).startingGear(for: rider) == 3)
         #expect(ShiftingEngine.gradeOffset(profile: .standard, rider: rider).gearbox.gearIndex == 9)
@@ -61,7 +73,7 @@ struct GearProfileTests {
     @Test func closestGear() {
         let profile = GearProfile.standard
         // 50×17 = 2.94 is nearest 42×14 = 3.0.
-        let index = profile.closestGearIndex(toRatio: RiderSetup().realRatio)
+        let index = profile.closestGearIndex(toRatio: RiderSetup.fiftySeventeen.realRatio)
         #expect(profile.ratios[index] == 3.0)
     }
 

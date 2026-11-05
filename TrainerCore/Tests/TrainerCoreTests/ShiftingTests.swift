@@ -3,7 +3,7 @@ import Testing
 
 @Suite("Bridge with shifting engine")
 struct ShiftingBridgeTests {
-    static let rider = RiderSetup() // 50×17, ratio 2.94
+    static let rider = RiderSetup.fiftySeventeen // 50×17, ratio 2.94
     static let profile = GearProfile.standard // neutral (closest to 2.94) is 42×14 = 3.0, index 9
 
     /// Bridge with strategy A, trainer controlled and Zwift in control.

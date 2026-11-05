@@ -195,7 +195,7 @@ public struct RiderSetup: Equatable, Sendable, Codable {
     public var realChainring: Int
     public var realCog: Int
 
-    public init(systemMass: Double = 80, realChainring: Int = 50, realCog: Int = 17) {
+    public init(systemMass: Double = 80, realChainring: Int = 42, realCog: Int = 18) {
         self.systemMass = systemMass
         self.realChainring = realChainring
         self.realCog = realCog
