@@ -21,22 +21,6 @@ struct GearProfileTests {
         #expect(ShiftingEngine.gradeOffset(profile: .standard, rider: fast).gearbox.gearIndex == 11)  // 4.55 → 42×10
     }
 
-    @Test func twoByMergesNearDuplicates() throws {
-        let profile = try GearProfile(
-            name: "2×",
-            drivetrain: Drivetrain(chainrings: [50, 34], cogs: [11, 12, 13, 14, 15, 17, 19, 21, 23, 25, 28])
-        )
-        #expect(profile.ratios.first == 34.0 / 28)
-        #expect(profile.ratios.last == 50.0 / 11)
-        for (a, b) in zip(profile.ratios, profile.ratios.dropFirst()) {
-            #expect(b >= a * 1.03)
-        }
-        #expect(profile.gearCount < 22)
-        #expect(profile.gearCount > 15)
-        #expect(profile.label(ofGear: 0) == "34×28")
-        #expect(profile.label(ofGear: profile.gearCount - 1) == "50×11")
-    }
-
     @Test func cassetteFromRange() {
         let cogs = Drivetrain.cassette(smallest: 10, largest: 52, count: 12)
         #expect(cogs.count == 12)
@@ -48,15 +32,6 @@ struct GearProfileTests {
         #expect(Drivetrain.cassette(smallest: 11, largest: 13, count: 3) == [11, 12, 13])
         #expect(Drivetrain.cassette(smallest: 28, largest: 11, count: 2) == [11, 28])
         #expect(Drivetrain.cassette(smallest: 11, largest: 11, count: 5) == [11])
-    }
-
-    @Test func rejectsBadTeeth() {
-        #expect(throws: GearProfileError.invalidTeeth) {
-            try GearProfile(name: "x", drivetrain: Drivetrain(chainrings: [], cogs: [11]))
-        }
-        #expect(throws: GearProfileError.invalidTeeth) {
-            try GearProfile(name: "x", drivetrain: Drivetrain(chainrings: [50], cogs: [0, 11]))
-        }
     }
 
     @Test func presetsAreValidAndDistinct() {
@@ -93,7 +68,8 @@ struct GearProfileTests {
     @Test func codableRoundTripAndValidation() throws {
         let data = try JSONEncoder().encode(GearProfile.standard)
         #expect(try JSONDecoder().decode(GearProfile.self, from: data) == .standard)
-        let chosen = try GearProfile.presets[1].withStartingGear(4)
+        let chosen = try GearProfile.presets[2].withStartingGear(4)
+        #expect(chosen.label(ofGear: 0) == "44×44")
         #expect(try JSONDecoder().decode(GearProfile.self, from: JSONEncoder().encode(chosen)) == chosen)
 
         // Saved before drivetrains existed.

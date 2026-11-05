@@ -138,10 +138,9 @@ struct GearProfileView: View {
     /// Fills the custom fields from the current profile.
     private func loadTeeth() {
         guard let drivetrain = bridge.profile.drivetrain,
-              let ring = drivetrain.chainrings.max(),
               let lo = drivetrain.cogs.min(), let hi = drivetrain.cogs.max(), lo < hi
         else { return }
-        chainring = min(max(ring, 24), 62)
+        chainring = min(max(drivetrain.chainring, 24), 62)
         smallestCog = min(max(lo, 10), 51)
         largestCog = min(max(hi, smallestCog + 1), 52)
         cogCount = drivetrain.cogs.count
