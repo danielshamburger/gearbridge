@@ -28,14 +28,42 @@ final class VolumeButtonShifter: NSObject {
     /// The volume we restore after each press, away from 0 and 1 so both buttons register.
     private var baseline: Float = 0.5
     private var isRestoring = false
+    /// Set by start/stop; checked when an asynchronous activation finishes.
+    private var wantsRunning = false
+
+    /// Audio session calls can block, so they run here rather than on the main thread.
+    private nonisolated static let audioQueue = DispatchQueue(label: "TrainerCtrl.audioSession")
 
     private var slider: UISlider? {
         volumeView.subviews.compactMap { $0 as? UISlider }.first
     }
 
     func start() {
-        guard observation == nil else { return }
-        activateSession()
+        guard !wantsRunning else { return }
+        wantsRunning = true
+        Self.setSessionActive(true) { [weak self] in self?.beginObserving() }
+        // Other apps can deactivate our session; reclaim it when we come back.
+        activeObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { _ in
+            Self.setSessionActive(true)
+        }
+    }
+
+    func stop() {
+        guard wantsRunning else { return }
+        wantsRunning = false
+        observation?.invalidate()
+        observation = nil
+        if let activeObserver { NotificationCenter.default.removeObserver(activeObserver) }
+        activeObserver = nil
+        isRestoring = false
+        Self.setSessionActive(false)
+    }
+
+    /// Runs once the session is active (outputVolume is only live then).
+    private func beginObserving() {
+        guard wantsRunning, observation == nil else { return }
         let session = AVAudioSession.sharedInstance()
         baseline = min(max(session.outputVolume, 0.1), 0.9)
         if baseline != session.outputVolume { setVolume(baseline) }
@@ -44,28 +72,28 @@ final class VolumeButtonShifter: NSObject {
             guard let new = change.newValue, let old = change.oldValue else { return }
             Task { @MainActor in self?.volumeChanged(from: old, to: new) }
         }
-        // Other apps can deactivate our session; reclaim it when we come back.
-        activeObserver = NotificationCenter.default.addObserver(
-            forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in self?.activateSession() }
+    }
+
+    private nonisolated static func setSessionActive(
+        _ active: Bool,
+        then completion: (@MainActor @Sendable () -> Void)? = nil
+    ) {
+        audioQueue.async {
+            let session = AVAudioSession.sharedInstance()
+            if active {
+                // Ambient + mix: doesn't interrupt music or podcasts. Set once,
+                // since changing category while active is itself slow.
+                if session.category != .ambient || session.categoryOptions != .mixWithOthers {
+                    try? session.setCategory(.ambient, options: [.mixWithOthers])
+                }
+                try? session.setActive(true)
+            } else {
+                try? session.setActive(false, options: .notifyOthersOnDeactivation)
+            }
+            if let completion {
+                Task { @MainActor in completion() }
+            }
         }
-    }
-
-    func stop() {
-        observation?.invalidate()
-        observation = nil
-        if let activeObserver { NotificationCenter.default.removeObserver(activeObserver) }
-        activeObserver = nil
-        isRestoring = false
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-    }
-
-    private func activateSession() {
-        let session = AVAudioSession.sharedInstance()
-        // Ambient + mix: doesn't interrupt music or podcasts.
-        try? session.setCategory(.ambient, options: [.mixWithOthers])
-        try? session.setActive(true)
     }
 
     private func volumeChanged(from old: Float, to new: Float) {
