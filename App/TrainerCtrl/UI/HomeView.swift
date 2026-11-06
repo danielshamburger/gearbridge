@@ -4,7 +4,8 @@ import TrainerCore
 /// The opening screen. Nothing connects or records until a ride starts.
 struct HomeView: View {
     @Bindable var bridge: BridgeController
-    @State private var showingSettings = false
+    /// Settings is open; `page` is the category it opened on (nil: the list).
+    @State private var settings: SettingsRequest?
 
     var body: some View {
         NavigationStack {
@@ -34,7 +35,7 @@ struct HomeView: View {
                     .controlSize(.large)
 
                     Button {
-                        showingSettings = true
+                        settings = SettingsRequest(page: nil)
                     } label: {
                         Label("Settings", systemImage: "gearshape")
                             .frame(maxWidth: .infinity, minHeight: 32)
@@ -47,7 +48,7 @@ struct HomeView: View {
             .padding(.bottom, 24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(.systemGroupedBackground).ignoresSafeArea())
-            .sheet(isPresented: $showingSettings) { SettingsView(bridge: bridge) }
+            .sheet(item: $settings) { request in SettingsView(bridge: bridge, page: request.page) }
         }
     }
 
@@ -81,44 +82,41 @@ struct HomeView: View {
             .accessibilityHidden(true)
     }
 
-    /// The current setup, styled like a Settings list; tap to change it in Settings.
+    /// The current setup, styled like a Settings list. Each row opens Settings
+    /// on its own page.
     private var summary: some View {
-        Button {
-            showingSettings = true
-        } label: {
-            VStack(spacing: 0) {
-                let rows = summaryRows
-                ForEach(Array(rows.enumerated()), id: \.offset) { index, item in
+        VStack(spacing: 0) {
+            let rows = summaryRows
+            ForEach(Array(rows.enumerated()), id: \.offset) { index, item in
+                Button {
+                    settings = SettingsRequest(page: item.page)
+                } label: {
                     SummaryRow(item: item)
-                    if index < rows.count - 1 {
-                        Divider().padding(.leading, 16 + 29 + 12) // in line with the labels
-                    }
+                }
+                .buttonStyle(SummaryRowStyle())
+                .accessibilityHint("Opens \(item.page.title) settings")
+                if index < rows.count - 1 {
+                    Divider().padding(.leading, 16 + 29 + 12) // in line with the labels
                 }
             }
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
         }
-        .buttonStyle(.plain)
-        .accessibilityHint("Opens Settings")
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
     }
 
     private var summaryRows: [SummaryRow.Item] {
         var rows: [SummaryRow.Item] = [
-            .init(symbol: "figure.indoor.cycle", color: .orange, label: "Trainer", value: bridge.source.rawValue,
+            .init(page: .trainer, value: bridge.source.rawValue,
                   hint: bridge.source == .bluetooth
                       ? readiness(bridge.lastTrainerConnection, "Connected", never: "Not connected yet") : nil),
-            .init(symbol: "display", color: .blue, label: "Zwift",
-                  value: bridge.lastZwiftConnection == nil ? "Not paired" : "Paired",
+            .init(page: .zwift, value: bridge.lastZwiftConnection == nil ? "Not paired" : "Paired",
                   hint: bridge.lastZwiftConnection == nil ? nil : readiness(bridge.lastZwiftConnection, "Last connected", never: "")),
-            .init(symbol: "gearshape.2.fill", color: .green, label: "Gears",
-                  value: bridge.virtualShifting ? bridge.profile.name : "Off", hint: nil),
+            .init(page: .gears, value: bridge.virtualShifting ? bridge.profile.name : "Off", hint: nil),
         ]
         if bridge.virtualShifting {
-            rows.append(.init(symbol: "slider.horizontal.3", color: .purple, label: "Shifting",
-                              value: bridge.activeModel.rawValue, hint: nil))
+            rows.append(.init(page: .shifting, value: bridge.activeModel.rawValue, hint: nil))
         }
-        rows.append(.init(symbol: "link", color: .gray, label: "Real gear",
-                          value: "\(bridge.rider.realChainring)×\(bridge.rider.realCog)", hint: nil))
+        rows.append(.init(page: .realGear, value: "\(bridge.rider.realChainring)×\(bridge.rider.realCog)", hint: nil))
         return rows
     }
 
@@ -137,13 +135,26 @@ struct HomeView: View {
     }
 }
 
-/// One row of the home screen's setup card: coloured icon tile, label (with an
-/// optional hint under it), value on the right, chevron.
+/// Which Settings page the home screen opened (nil: the category list).
+private struct SettingsRequest: Identifiable {
+    let id = UUID()
+    let page: SettingsPage?
+}
+
+/// Grey highlight while a row is pressed, like a List row.
+private struct SummaryRowStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(configuration.isPressed ? Color(.systemGray4) : .clear)
+            .contentShape(Rectangle())
+    }
+}
+
+/// One row of the home screen's setup card: the Settings icon tile, label
+/// (with an optional hint under it), value on the right, chevron.
 private struct SummaryRow: View {
     struct Item {
-        let symbol: String
-        let color: Color
-        let label: String
+        let page: SettingsPage
         let value: String
         let hint: String?
     }
@@ -152,13 +163,9 @@ private struct SummaryRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: item.symbol)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 29, height: 29)
-                .background(item.color.gradient, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            SettingsIcon(page: item.page)
             VStack(alignment: .leading, spacing: 1) {
-                Text(item.label)
+                Text(item.page.title)
                 if let hint = item.hint {
                     Text(hint).font(.caption).foregroundStyle(.secondary)
                 }
@@ -173,6 +180,7 @@ private struct SummaryRow: View {
                 .foregroundStyle(.tertiary)
         }
         .font(.body)
+        .foregroundStyle(.primary)
         .padding(.horizontal, 16)
         .padding(.vertical, item.hint == nil ? 11 : 7)
         .frame(minHeight: 52)
