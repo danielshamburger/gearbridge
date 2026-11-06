@@ -161,15 +161,15 @@ struct RideView: View {
         Section {
             let data = bridge.latestData
             VStack(spacing: 12) {
-                GaugeReadout(title: "Power", value: data?.instantaneousPower.map { "\($0)" }, unit: "W",
+                GaugeReadout(title: "Power", symbol: "bolt.fill", value: data?.instantaneousPower.map { "\($0)" }, unit: "W",
                              gauge: data?.instantaneousPower.map(Double.init), range: 0...bridge.powerGauge.upperBound,
                              tint: .orange, size: 200, lineWidth: 14, valueSize: 60, unitBeside: true)
                 HStack(spacing: 24) {
-                    GaugeReadout(title: "Cadence", value: data?.instantaneousCadence.map { String(format: "%.0f", $0) }, unit: "rpm",
+                    GaugeReadout(title: "Cadence", symbol: "arrow.triangle.2.circlepath", value: data?.instantaneousCadence.map { String(format: "%.0f", $0) }, unit: "rpm",
                                  gauge: data?.instantaneousCadence, range: 0...120,
                                  tint: .teal, size: 120, lineWidth: 9, valueSize: 32)
                     // The gauge's fill is a fraction, so it works in km/h whatever the display unit.
-                    GaugeReadout(title: "Speed",
+                    GaugeReadout(title: "Speed", symbol: "speedometer",
                                  value: data?.instantaneousSpeed.map { String(format: "%.1f", bridge.speedUnit.fromKilometersPerHour($0)) },
                                  unit: bridge.speedUnit.label,
                                  gauge: data?.instantaneousSpeed, range: 0...bridge.speedGauge.upperBound,
@@ -213,6 +213,8 @@ struct RideView: View {
 /// A ring gauge with its number inside and its label in the gap at the bottom.
 private struct GaugeReadout: View {
     let title: String
+    /// SF Symbol shown with the label, in the gauge's colour.
+    let symbol: String
     let value: String?
     let unit: String
     let gauge: Double?
@@ -243,10 +245,12 @@ private struct GaugeReadout: View {
             }
             .padding(.horizontal, lineWidth + 8)
             // The ring's open gap is at the bottom: the label sits there.
-            Text(title)
-                .font(.system(size: max(valueSize * 0.28, 11), weight: .medium))
-                .foregroundStyle(.secondary)
-                .frame(maxHeight: .infinity, alignment: .bottom)
+            HStack(spacing: 4) {
+                Image(systemName: symbol).foregroundStyle(tint)
+                Text(title).foregroundStyle(.secondary)
+            }
+            .font(.system(size: max(valueSize * 0.28, 11), weight: .medium))
+            .frame(maxHeight: .infinity, alignment: .bottom)
         }
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
