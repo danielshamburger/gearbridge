@@ -273,6 +273,7 @@ final class BridgeController {
     /// Starts a fresh log, advertises to Zwift and connects the trainer.
     func startRide() {
         guard !isRiding else { return }
+        finishEndingRide() // a ride ended a moment ago: finish its teardown first
         isRiding = true
         mockCadence = 0 // every ride starts stopped; the rider pedals up from 0
         powerGauge.reset()
@@ -294,8 +295,24 @@ final class BridgeController {
 
     /// Disconnects the trainer and stops advertising. Zwift stays paired (it
     /// just gets no data) and the log is kept for export.
+    ///
+    /// The home screen appears first; the teardown runs on the next main-actor
+    /// turn, after the screen change has started, so it doesn't redraw the
+    /// outgoing ride screen. Bluetooth and timers are main-thread objects, so
+    /// "later" rather than "on another thread".
     func endRide() {
         guard isRiding else { return }
+        isRiding = false
+        teardownPending = true
+        Task { @MainActor [weak self] in self?.finishEndingRide() }
+    }
+
+    /// Set between `endRide()` and its teardown actually running.
+    @ObservationIgnored private var teardownPending = false
+
+    private func finishEndingRide() {
+        guard teardownPending else { return }
+        teardownPending = false
         if calibrationRun?.phase.isActive == true { cancelCalibration() }
         calibrationRun = nil
         tickTask?.cancel()
@@ -307,7 +324,6 @@ final class BridgeController {
         link = nil
         peripheral.stop()
         record(.event, "ride", [], "end")
-        isRiding = false
         trainerState = .idle
         latestData = nil
         trainerFeature = nil
