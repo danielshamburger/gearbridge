@@ -206,7 +206,7 @@ struct RideView: View {
                 .font(.system(size: 34, weight: .bold))
                 .frame(width: 96, height: 104)
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(ShiftButtonStyle())
         .buttonRepeatBehavior(.enabled)
         .disabled(bridge.gearNumber == nil)
         .accessibilityLabel(label)
@@ -413,5 +413,38 @@ private struct GaugeReadout: View {
             .font(.system(size: max(valueSize * (isHero ? 0.2 : 0.26), 9), weight: .semibold))
             .tracking(0.8)
             .foregroundStyle(.secondary)
+    }
+}
+
+/// The big − / + buttons: a deep blue (the accent's dark-mode shade is too
+/// bright for two large solid buttons on the black ride screen), lit from
+/// above with a soft shadow so they look slightly raised, and pressing in
+/// when tapped.
+private struct ShiftButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    private static let top = Color(red: 0.32, green: 0.43, blue: 0.92)
+    private static let bottom = Color(red: 0.18, green: 0.26, blue: 0.70)
+
+    func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed
+        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+        return configuration.label
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.35), radius: 1, y: 1)   // symbol sits on the face
+            .background {
+                shape.fill(LinearGradient(colors: pressed ? [Self.bottom, Self.top] : [Self.top, Self.bottom],
+                                          startPoint: .top, endPoint: .bottom))
+                    .overlay {
+                        // Catches the light along the top edge
+                        shape.strokeBorder(LinearGradient(colors: [.white.opacity(pressed ? 0.08 : 0.28), .clear],
+                                                          startPoint: .top, endPoint: .center),
+                                           lineWidth: 1)
+                    }
+                    .shadow(color: .black.opacity(0.5), radius: pressed ? 1 : 5, y: pressed ? 1 : 4)
+            }
+            .scaleEffect(pressed ? 0.97 : 1)
+            .opacity(isEnabled ? 1 : 0.4)
+            .animation(.easeOut(duration: 0.1), value: pressed)
     }
 }
