@@ -2,7 +2,7 @@
 
 Gearbridge talks to Zwift over Bluetooth today. This plan adds a second way: Wi-Fi, using Wahoo's **Direct Connect** protocol (also called DIRCON), which Zwift supports for trainers on the local network. The trainer side doesn't change: the Flux S only speaks Bluetooth (and ANT+), so the phone still reaches it over Bluetooth.
 
-Status: planned (2026-11-06). Nothing built yet.
+Status: steps 1–6 built (2026-11-06). Step 7, the check on the real phone with Zwift, is still to do.
 
 ## Decisions already made
 
