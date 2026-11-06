@@ -47,6 +47,13 @@ cd TrainerCore && swift test
 2. In Zwift, pair **Power** to the Flux S directly over ANT+.
 3. Keep **Controllable** paired to TrainerCtrl.
 
+## Troubleshooting
+
+**Zwift shows TrainerCtrl as connected, but power and cadence stay at 0, then blank out, while the app still says "Waiting for Zwift to pair".** The Mac is holding stale Bluetooth information about the iPhone. To fix it:
+1. Quit Zwift.
+2. Turn the Mac's Bluetooth off and on again.
+3. Reopen Zwift and pair TrainerCtrl again.
+
 ## Layout
 
 | Path | What's there |

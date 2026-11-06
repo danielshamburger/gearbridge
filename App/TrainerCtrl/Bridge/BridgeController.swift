@@ -37,7 +37,7 @@ final class BridgeController {
         didSet { if source != oldValue, isRiding { connectTrainer() } }
     }
 
-    var mockCadence: Double = 85 {
+    var mockCadence: Double = 0 {
         didSet { (link as? MockTrainerLink)?.cadence = mockCadence }
     }
 
@@ -233,6 +233,7 @@ final class BridgeController {
     func startRide() {
         guard !isRiding else { return }
         isRiding = true
+        mockCadence = 0 // every ride starts stopped; the rider pedals up from 0
         clearLog()
         record(.event, "ride", [], "start")
         // Zwift's side of the bridge (control, last command) carries over from
