@@ -38,6 +38,13 @@ enum TrainerSource: String, CaseIterable, Identifiable {
 
 /// Wires the trainer link, the virtual trainer Zwift pairs to, `BridgeCore`
 /// and the packet log together, and exposes state for the UI.
+/// How Zwift reaches the app.
+enum ZwiftConnection: String, CaseIterable, Identifiable {
+    case bluetooth, wifi
+    var id: String { rawValue }
+    var label: String { self == .wifi ? "Wi-Fi" : "Bluetooth" }
+}
+
 @MainActor
 @Observable
 final class BridgeController {
@@ -106,6 +113,25 @@ final class BridgeController {
         }
     }
 
+    /// How Zwift reaches the app: one at a time, never both.
+    var zwiftConnection: ZwiftConnection {
+        didSet {
+            guard zwiftConnection != oldValue else { return }
+            UserDefaults.standard.set(zwiftConnection.rawValue, forKey: Keys.zwiftConnection)
+            record(.event, "settings", [], "zwiftConnection=\(zwiftConnection.rawValue)")
+            guard isRiding else { return }
+            let old: any ZwiftLink = oldValue == .wifi ? wifi : peripheral
+            old.stop()
+            if zwiftSubscribers > 0 {
+                zwiftSubscribers = 0
+                record(.event, "zwift", [], "disconnected")
+                core.zwiftConnectionChanged(connected: false, at: now)
+            }
+            zwift.start()
+            zwiftState = zwift.state
+        }
+    }
+
     /// Off when Zwift takes power straight from the trainer (e.g. over ANT+),
     /// so Gearbridge doesn't compete as a power source.
     var reportsPower: Bool {
@@ -114,7 +140,7 @@ final class BridgeController {
             UserDefaults.standard.set(reportsPower, forKey: Keys.reportsPower)
             record(.event, "settings", [], "reportsPower=\(reportsPower)")
             core.reportsPower = reportsPower
-            zwift.feature = BridgeCore.virtualFeature(copying: trainerFeature, reportsPower: reportsPower)
+            for link in zwiftLinks { link.feature = BridgeCore.virtualFeature(copying: trainerFeature, reportsPower: reportsPower) }
         }
     }
 
@@ -229,7 +255,10 @@ final class BridgeController {
     /// The Bluetooth link. Always published at launch (see `publish()`), even when Wi-Fi carries the ride.
     @ObservationIgnored private let peripheral = VirtualTrainerPeripheral(name: BridgeController.advertisedName)
     /// The link to Zwift for the current connection choice.
-    @ObservationIgnored private var zwift: any ZwiftLink { peripheral }
+    /// The Wi-Fi (Direct Connect) link.
+    @ObservationIgnored private let wifi = DirectConnectServer(name: BridgeController.advertisedName)
+    @ObservationIgnored private var zwift: any ZwiftLink { zwiftConnection == .wifi ? wifi : peripheral }
+    @ObservationIgnored private var zwiftLinks: [any ZwiftLink] { [peripheral, wifi] }
     @ObservationIgnored private var link: TrainerLink?
     @ObservationIgnored private var logStart = Date()
     @ObservationIgnored private var trainerFeature: FitnessMachineFeature?
@@ -247,6 +276,7 @@ final class BridgeController {
     private enum Keys {
         static let virtualShifting = "virtualShifting"
         static let reportsPower = "reportsPower"
+        static let zwiftConnection = "zwiftConnection"
         static let volumeButtonsShift = "volumeButtonsShift"
         static let debugMode = "debugMode"
         static let lastTrainerConnection = "lastTrainerConnection"
@@ -293,6 +323,7 @@ final class BridgeController {
         gradePerGear = defaults.double(forKey: Keys.gradePerGear)
         virtualShifting = defaults.bool(forKey: Keys.virtualShifting)
         reportsPower = defaults.bool(forKey: Keys.reportsPower)
+        zwiftConnection = defaults.string(forKey: Keys.zwiftConnection).flatMap(ZwiftConnection.init) ?? .bluetooth
         volumeButtonsShift = defaults.bool(forKey: Keys.volumeButtonsShift)
         debugMode = defaults.bool(forKey: Keys.debugMode)
         speedUnit = defaults.string(forKey: Keys.speedUnit).flatMap(SpeedUnit.init) ?? .localeDefault
@@ -300,19 +331,24 @@ final class BridgeController {
         shiftingModel = defaults.string(forKey: Keys.shiftingModel).flatMap(ShiftingModel.init) ?? .simple
         savedCalibration = defaults.data(forKey: Keys.calibration)
             .flatMap { try? JSONDecoder().decode(SavedCalibration.self, from: $0) }
-        zwift.feature = BridgeCore.virtualFeature(copying: nil, reportsPower: reportsPower)
+        for link in zwiftLinks { link.feature = BridgeCore.virtualFeature(copying: nil, reportsPower: reportsPower) }
         resetCore()
-        zwift.onControlPointWrite = { [weak self] bytes in self?.handleZwiftWrite(bytes) }
-        zwift.onLog = { [weak self] message in self?.record(.event, "zwift-ble", [], message) }
-        zwift.onChange = { [weak self] in
-            guard let self else { return }
-            self.zwiftState = self.zwift.state
-            if self.zwiftSubscribers != self.zwift.subscriberCount {
-                self.zwiftSubscribers = self.zwift.subscriberCount
-                let connected = self.zwiftSubscribers > 0
-                if connected { self.lastZwiftConnection = Date() }
-                self.record(.event, "zwift", [], connected ? "connected" : "disconnected")
-                self.core.zwiftConnectionChanged(connected: connected, at: self.now)
+        for (link, channel) in [(peripheral as any ZwiftLink, "zwift-ble"), (wifi as any ZwiftLink, "zwift-wifi")] {
+            link.onControlPointWrite = { [weak self, weak link] bytes in
+                guard let self, let link, self.zwift === link else { return }
+                self.handleZwiftWrite(bytes)
+            }
+            link.onLog = { [weak self] message in self?.record(.event, channel, [], message) }
+            link.onChange = { [weak self, weak link] in
+                guard let self, let link, self.zwift === link else { return }
+                self.zwiftState = link.state
+                if self.zwiftSubscribers != link.subscriberCount {
+                    self.zwiftSubscribers = link.subscriberCount
+                    let connected = self.zwiftSubscribers > 0
+                    if connected { self.lastZwiftConnection = Date() }
+                    self.record(.event, "zwift", [], connected ? "connected" : "disconnected")
+                    self.core.zwiftConnectionChanged(connected: connected, at: self.now)
+                }
             }
         }
         peripheral.publish() // at launch, so its GATT position is stable (see publish())
@@ -716,10 +752,10 @@ final class BridgeController {
         case .feature(let feature, let raw):
             record(.fromTrainer, FTMSUUID.feature, raw, "feature")
             trainerFeature = feature
-            zwift.feature = BridgeCore.virtualFeature(copying: feature, reportsPower: reportsPower)
+            for link in zwiftLinks { link.feature = BridgeCore.virtualFeature(copying: feature, reportsPower: reportsPower) }
         case .powerRange(let range, let raw):
             record(.fromTrainer, FTMSUUID.supportedPowerRange, raw, "\(range.minimum)–\(range.maximum) W")
-            zwift.powerRange = range
+            for link in zwiftLinks { link.powerRange = range }
         case .sent(let request, let raw):
             record(.toTrainer, FTMSUUID.controlPoint, raw, request.logSummary)
         case .decodeError(let channel, let raw, let message):

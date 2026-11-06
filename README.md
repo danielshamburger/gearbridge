@@ -13,6 +13,7 @@ Tacx Flux S  ──BLE (FTMS)──▶  Gearbridge (iPhone)  ──BLE (FTMS)─
 
 ## Features
 
+- Connects to Zwift over Bluetooth or Wi-Fi.
 - Shift with the on-screen + and − buttons or the volume buttons.
 - 1× gear presets, or a custom chainring and cassette.
 - Two shifting models:
@@ -28,6 +29,7 @@ Tacx Flux S  ──BLE (FTMS)──▶  Gearbridge (iPhone)  ──BLE (FTMS)─
 2. Open Gearbridge and tap **Start ride**. The app connects to the trainer and shows up in Zwift.
    The first ride connects to the first smart trainer it finds and remembers it. With more than one trainer around, pick yours under **Settings → Trainer → Trainer**.
 3. In Zwift, pair **Controllable** and **Cadence** to Gearbridge. Pair **Power** to Gearbridge too, unless you use ANT+ (below).
+   To connect over Wi-Fi, choose it under **Settings → Zwift → Connect over**. Gearbridge then shows up in Zwift's pairing lists with a Wi-Fi icon. The phone and the Mac must be on the same network.
 4. Keep the app open while you pair. iOS only advertises to Zwift reliably while the app is on screen.
    Once paired, locking the phone or switching apps keeps the trainer and Zwift connected.
    To shift from there, use the − / + buttons on the lock screen, or long-press the Dynamic Island. Volume-button shifting needs the app on screen.
@@ -53,6 +55,8 @@ Tacx Flux S  ──BLE (FTMS)──▶  Gearbridge (iPhone)  ──BLE (FTMS)─
 | CoreBluetooth | Connecting to the trainer (central) and advertising to Zwift (peripheral) |
 | SwiftUI and Observation | All screens and app state |
 | ActivityKit, WidgetKit and AppIntents | The lock screen and Dynamic Island widget, and its shift buttons |
+| Network | The Wi-Fi connection to Zwift: a TCP server found through Bonjour |
+| Wahoo Direct Connect | The protocol Zwift uses over Wi-Fi (no official spec; implemented from open-source work) |
 | AVFoundation and MediaPlayer | Shifting with the volume buttons |
 
 ## Building
@@ -69,6 +73,11 @@ cd TrainerCore && swift test
 1. Quit Zwift.
 2. Turn the Mac's Bluetooth off and on again.
 3. Reopen Zwift and pair Gearbridge again.
+
+**Zwift doesn't find Gearbridge over Wi-Fi.** Check that:
+- the phone and the Mac are on the same network (guest networks, and routers that stop devices seeing each other, break it);
+- Local Network is allowed for Gearbridge in the Settings app under Privacy;
+- no VPN is on.
 
 ## Debugging
 

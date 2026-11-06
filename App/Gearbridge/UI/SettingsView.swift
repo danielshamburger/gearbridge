@@ -192,6 +192,9 @@ private struct ZwiftSettings: View {
     var body: some View {
         Form {
             Section {
+                Picker("Connect over", selection: $bridge.zwiftConnection) {
+                    ForEach(ZwiftConnection.allCases) { Text($0.label).tag($0) }
+                }
                 LabeledContent("Advertised as", value: BridgeController.advertisedName)
                 LabeledContent("Status", value: bridge.zwiftLabel)
                 if let last = bridge.lastZwiftConnection {
@@ -199,7 +202,9 @@ private struct ZwiftSettings: View {
                 }
                 Toggle("Send power to Zwift", isOn: $bridge.reportsPower)
             } footer: {
-                Text("In Zwift on the Mac, pair Controllable (and Cadence) to \(BridgeController.advertisedName), plus Power unless Zwift takes power directly from the trainer over ANT+. Events that require a power meter need the ANT+ setup: turn off \"Send power to Zwift\", then re-pair.")
+                Text((bridge.zwiftConnection == .wifi
+                      ? "Wi-Fi needs the phone and the Mac on the same network. The trainer still connects to the phone over Bluetooth. "
+                      : "") + "In Zwift on the Mac, pair Controllable (and Cadence) to \(BridgeController.advertisedName), plus Power unless Zwift takes power directly from the trainer over ANT+. Events that require a power meter need the ANT+ setup: turn off \"Send power to Zwift\", then re-pair.")
             }
         }
         .navigationTitle("Zwift")

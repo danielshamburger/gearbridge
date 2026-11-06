@@ -281,6 +281,7 @@
 				INFOPLIST_FILE = "Gearbridge-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Gearbridge;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Gearbridge connects to your smart trainer and presents itself to Zwift as a trainer.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Gearbridge shows up in Zwift on your local network when you connect over Wi-Fi.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -309,6 +310,7 @@
 				INFOPLIST_FILE = "Gearbridge-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Gearbridge;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Gearbridge connects to your smart trainer and presents itself to Zwift as a trainer.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Gearbridge shows up in Zwift on your local network when you connect over Wi-Fi.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
