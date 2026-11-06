@@ -4,11 +4,12 @@ import TrainerCore
 /// The opening screen. Nothing connects or records until a ride starts.
 struct HomeView: View {
     @Bindable var bridge: BridgeController
-    /// Settings is open; `page` is the category it opened on (nil: the list).
-    @State private var settings: SettingsRequest?
+    /// Settings pages are pushed onto the home screen's own stack, so Back (or
+    /// a swipe) from a page opened here returns home.
+    @State private var path = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             VStack(spacing: 24) {
                 Spacer()
                 VStack(spacing: 12) {
@@ -35,7 +36,7 @@ struct HomeView: View {
                     .controlSize(.large)
 
                     Button {
-                        settings = SettingsRequest(page: nil)
+                        path.append(HomeRoute.settings)
                     } label: {
                         Label("Settings", systemImage: "gearshape")
                             .frame(maxWidth: .infinity, minHeight: 32)
@@ -48,7 +49,12 @@ struct HomeView: View {
             .padding(.bottom, 24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(.systemGroupedBackground).ignoresSafeArea())
-            .sheet(item: $settings) { request in SettingsView(bridge: bridge, page: request.page) }
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationTitle("Home")
+            .navigationDestination(for: HomeRoute.self) { _ in SettingsList(bridge: bridge) }
+            .navigationDestination(for: SettingsPage.self) { page in
+                SettingsDestination(page: page, bridge: bridge)
+            }
         }
     }
 
@@ -89,7 +95,7 @@ struct HomeView: View {
             let rows = summaryRows
             ForEach(Array(rows.enumerated()), id: \.offset) { index, item in
                 Button {
-                    settings = SettingsRequest(page: item.page)
+                    path.append(item.page)
                 } label: {
                     SummaryRow(item: item)
                 }
@@ -116,7 +122,7 @@ struct HomeView: View {
         if bridge.virtualShifting {
             rows.append(.init(page: .shifting, value: bridge.activeModel.rawValue, hint: nil))
         }
-        rows.append(.init(page: .realGear, value: "\(bridge.rider.realChainring)×\(bridge.rider.realCog)", hint: nil))
+        rows.append(.init(page: .trainer, title: "Real gear", symbol: "link", color: .gray, value: "\(bridge.rider.realChainring)×\(bridge.rider.realCog)", hint: nil))
         return rows
     }
 
@@ -135,10 +141,9 @@ struct HomeView: View {
     }
 }
 
-/// Which Settings page the home screen opened (nil: the category list).
-private struct SettingsRequest: Identifiable {
-    let id = UUID()
-    let page: SettingsPage?
+/// The Settings category list, pushed from the home screen's Settings button.
+private enum HomeRoute: Hashable {
+    case settings
 }
 
 /// Grey highlight while a row is pressed, like a List row.
@@ -155,6 +160,10 @@ private struct SummaryRowStyle: ButtonStyle {
 private struct SummaryRow: View {
     struct Item {
         let page: SettingsPage
+        /// Defaults to the page's own title and icon.
+        var title: String? = nil
+        var symbol: String? = nil
+        var color: Color? = nil
         let value: String
         let hint: String?
     }
@@ -163,9 +172,9 @@ private struct SummaryRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            SettingsIcon(page: item.page)
+            SettingsIcon(symbol: item.symbol ?? item.page.symbol, color: item.color ?? item.page.color)
             VStack(alignment: .leading, spacing: 1) {
-                Text(item.page.title)
+                Text(item.title ?? item.page.title)
                 if let hint = item.hint {
                     Text(hint).font(.caption).foregroundStyle(.secondary)
                 }

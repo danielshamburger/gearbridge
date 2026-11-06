@@ -38,7 +38,7 @@ cd TrainerCore && swift test
 
 ## Riding
 
-1. Put the chain in the cog you set under **Settings → Real gear on the trainer** (42×18 by default).
+1. Put the chain in the cog you set under **Settings → Trainer → Real gear** (42×18 by default).
 2. Open TrainerCtrl and tap **Start ride**. The app connects to the trainer and shows up in Zwift.
 3. In Zwift, pair **Controllable** and **Cadence** to TrainerCtrl. Pair **Power** to TrainerCtrl too, unless you use ANT+ (below).
 4. Keep the app open while you pair. iOS only advertises to Zwift reliably while the app is on screen.

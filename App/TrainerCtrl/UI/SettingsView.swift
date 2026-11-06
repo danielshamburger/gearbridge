@@ -5,7 +5,7 @@ import UIKit
 /// The categories in Settings, each its own page. The home screen's setup
 /// card opens Settings straight to one of them.
 enum SettingsPage: String, Hashable, CaseIterable, Identifiable {
-    case trainer, zwift, gears, shifting, realGear, display, diagnostics
+    case trainer, zwift, gears, shifting, display, diagnostics
 
     var id: Self { self }
 
@@ -15,7 +15,6 @@ enum SettingsPage: String, Hashable, CaseIterable, Identifiable {
         case .zwift: "Zwift"
         case .gears: "Gears"
         case .shifting: "Shifting"
-        case .realGear: "Real gear"
         case .display: "Display"
         case .diagnostics: "Diagnostics"
         }
@@ -27,7 +26,6 @@ enum SettingsPage: String, Hashable, CaseIterable, Identifiable {
         case .zwift: "display"
         case .gears: "gearshape.2.fill"
         case .shifting: "slider.horizontal.3"
-        case .realGear: "link"
         case .display: "textformat.size"
         case .diagnostics: "stethoscope"
         }
@@ -39,7 +37,6 @@ enum SettingsPage: String, Hashable, CaseIterable, Identifiable {
         case .zwift: .blue
         case .gears: .green
         case .shifting: .purple
-        case .realGear: .gray
         case .display: .indigo
         case .diagnostics: .red
         }
@@ -48,59 +45,71 @@ enum SettingsPage: String, Hashable, CaseIterable, Identifiable {
 
 /// A Settings-style icon tile: white symbol on a coloured rounded square.
 struct SettingsIcon: View {
-    let page: SettingsPage
+    let symbol: String
+    let color: Color
+
+    init(symbol: String, color: Color) {
+        self.symbol = symbol
+        self.color = color
+    }
+
+    init(page: SettingsPage) {
+        self.init(symbol: page.symbol, color: page.color)
+    }
 
     var body: some View {
-        Image(systemName: page.symbol)
+        Image(systemName: symbol)
             .font(.system(size: 15, weight: .semibold))
             .foregroundStyle(.white)
             .frame(width: 29, height: 29)
-            .background(page.color.gradient, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .background(color.gradient, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
             .accessibilityHidden(true)
     }
 }
 
-/// Everything that's set up once rather than touched while riding: a list of
-/// categories, each opening its own page.
+/// Settings as a sheet (from the ride screen): the category list, with Done.
 struct SettingsView: View {
     @Bindable var bridge: BridgeController
     @Environment(\.dismiss) private var dismiss
-    @State private var path: [SettingsPage]
-
-    /// `page`: open straight to that category (Back goes to the list).
-    init(bridge: BridgeController, page: SettingsPage? = nil) {
-        self.bridge = bridge
-        _path = State(initialValue: page.map { [$0] } ?? [])
-    }
 
     var body: some View {
-        NavigationStack(path: $path) {
-            List {
-                Section {
-                    row(.trainer, value: bridge.source.rawValue)
-                    row(.zwift, value: bridge.reportsPower ? nil : "Power off")
+        NavigationStack {
+            SettingsList(bridge: bridge)
+                .navigationDestination(for: SettingsPage.self) { page in
+                    SettingsDestination(page: page, bridge: bridge)
                 }
-                Section {
-                    row(.gears, value: bridge.virtualShifting ? bridge.profile.name : "Off")
-                    row(.shifting, value: bridge.virtualShifting ? bridge.activeModel.rawValue : "Off")
-                    row(.realGear, value: "\(bridge.rider.realChainring)×\(bridge.rider.realCog)")
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { dismiss() }
+                    }
                 }
-                Section {
-                    row(.display, value: bridge.speedUnit.label)
-                    row(.diagnostics, value: bridge.debugMode ? "Debug on" : nil)
-                }
+        }
+    }
+}
+
+/// Everything that's set up once rather than touched while riding: a list of
+/// categories, each opening its own page. Pushed from the home screen, or the
+/// root of `SettingsView`. The enclosing stack registers `SettingsPage`.
+struct SettingsList: View {
+    @Bindable var bridge: BridgeController
+
+    var body: some View {
+        List {
+            Section {
+                row(.trainer, value: "\(bridge.source.rawValue) · \(bridge.rider.realChainring)×\(bridge.rider.realCog)")
+                row(.zwift, value: bridge.reportsPower ? nil : "Power off")
             }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(for: SettingsPage.self) { page in
-                destination(page)
+            Section {
+                row(.gears, value: bridge.virtualShifting ? bridge.profile.name : "Off")
+                row(.shifting, value: bridge.virtualShifting ? bridge.activeModel.rawValue : "Off")
             }
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
+            Section {
+                row(.display, value: bridge.speedUnit.label)
+                row(.diagnostics, value: bridge.debugMode ? "Debug on" : nil)
             }
         }
+        .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private func row(_ page: SettingsPage, value: String?) -> some View {
@@ -115,15 +124,19 @@ struct SettingsView: View {
             }
         }
     }
+}
 
-    @ViewBuilder
-    private func destination(_ page: SettingsPage) -> some View {
+/// The page for one Settings category.
+struct SettingsDestination: View {
+    let page: SettingsPage
+    @Bindable var bridge: BridgeController
+
+    var body: some View {
         switch page {
         case .trainer: TrainerSettings(bridge: bridge)
         case .zwift: ZwiftSettings(bridge: bridge)
         case .gears: GearProfileView(bridge: bridge)
         case .shifting: ShiftingSettings(bridge: bridge)
-        case .realGear: RealGearSettings(bridge: bridge)
         case .display: DisplaySettings(bridge: bridge)
         case .diagnostics: DiagnosticsSettings(bridge: bridge)
         }
@@ -148,6 +161,18 @@ private struct TrainerSettings: View {
                 }
             } footer: {
                 Text("Mock is a simulated trainer for trying the app without the bike.")
+            }
+            Section {
+                Stepper(value: $bridge.rider.realChainring, in: 20...60) {
+                    LabeledContent("Chainring", value: "\(bridge.rider.realChainring)T")
+                }
+                Stepper(value: $bridge.rider.realCog, in: 9...40) {
+                    LabeledContent("Cog", value: "\(bridge.rider.realCog)T")
+                }
+            } header: {
+                Text("Real gear")
+            } footer: {
+                Text("The chainring and cog your chain sits in on the trainer. Leave it there while riding: the app needs it to know which virtual gear you're in.")
             }
         }
         .navigationTitle("Trainer")
@@ -223,26 +248,6 @@ private struct ShiftingSettings: View {
             return "Simple adds 1% grade per gear. Calibrated matches each gear's real effort and needs a trainer calibration first."
         }
         return "Simple adds 1% grade per gear. Calibrated scales the trainer's resistance so power and cadence match the virtual gear."
-    }
-}
-
-private struct RealGearSettings: View {
-    @Bindable var bridge: BridgeController
-
-    var body: some View {
-        Form {
-            Section {
-                Stepper(value: $bridge.rider.realChainring, in: 20...60) {
-                    LabeledContent("Chainring", value: "\(bridge.rider.realChainring)T")
-                }
-                Stepper(value: $bridge.rider.realCog, in: 9...40) {
-                    LabeledContent("Cog", value: "\(bridge.rider.realCog)T")
-                }
-            } footer: {
-                Text("The chainring and cog your chain sits in on the trainer. Leave it there while riding: the app needs it to know which virtual gear you're in.")
-            }
-        }
-        .navigationTitle("Real gear")
     }
 }
 
