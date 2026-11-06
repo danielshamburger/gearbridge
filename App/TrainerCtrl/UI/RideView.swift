@@ -29,6 +29,8 @@ struct RideView: View {
             .background(Color.black)
             .safeAreaInset(edge: .bottom, spacing: 0) { shiftPanel }
             .navigationBarTitleDisplayMode(.inline)
+            // Light status bar text over the black screen.
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
 
                 ToolbarItem(placement: .principal) {
@@ -103,9 +105,12 @@ struct RideView: View {
         }
         .sheet(isPresented: $showingSettings) { SettingsView(bridge: bridge) }
         // Always dark while riding: easier on the eyes in a dim pain cave, and
-        // black pixels cost almost nothing on OLED screens. Home and Settings
-        // outside a ride follow the system setting.
-        .preferredColorScheme(.dark)
+        // black pixels cost almost nothing on OLED screens. Scoped to this view
+        // (not preferredColorScheme, which flips the whole window at once and
+        // made the home screen snap dark before the transition), so the
+        // ride ↔ home change is an ordinary crossfade. Home and Settings outside
+        // a ride follow the system setting.
+        .environment(\.colorScheme, .dark)
     }
 
     private var volumeShiftingActive: Bool {
