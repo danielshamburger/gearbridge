@@ -419,32 +419,22 @@ private struct GaugeReadout: View {
     }
 }
 
-/// The big − / + buttons: a deep blue (the accent's dark-mode shade is too
-/// bright for two large solid buttons on the black ride screen), lit from
-/// above with a soft shadow so they look slightly raised, and pressing in
-/// when tapped.
+/// The big − / + buttons: a solid deep blue (the accent's dark-mode shade is
+/// too bright for two large buttons on the black ride screen), flat like the
+/// rest of the app, with just a soft shadow and a slight press-in.
 private struct ShiftButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
 
-    private static let top = Color(red: 0.32, green: 0.43, blue: 0.92)
-    private static let bottom = Color(red: 0.18, green: 0.26, blue: 0.70)
+    private static let fill = Color(red: 0.24, green: 0.34, blue: 0.82)
 
     func makeBody(configuration: Configuration) -> some View {
         let pressed = configuration.isPressed
-        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
         return configuration.label
             .foregroundStyle(.white)
-            .shadow(color: .black.opacity(0.35), radius: 1, y: 1)   // symbol sits on the face
             .background {
-                shape.fill(LinearGradient(colors: pressed ? [Self.bottom, Self.top] : [Self.top, Self.bottom],
-                                          startPoint: .top, endPoint: .bottom))
-                    .overlay {
-                        // Catches the light along the top edge
-                        shape.strokeBorder(LinearGradient(colors: [.white.opacity(pressed ? 0.08 : 0.28), .clear],
-                                                          startPoint: .top, endPoint: .center),
-                                           lineWidth: 1)
-                    }
-                    .shadow(color: .black.opacity(0.5), radius: pressed ? 1 : 5, y: pressed ? 1 : 4)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Self.fill.opacity(pressed ? 0.8 : 1))
+                    .shadow(color: .black.opacity(0.4), radius: pressed ? 1 : 3, y: pressed ? 1 : 2)
             }
             .scaleEffect(pressed ? 0.97 : 1)
             .opacity(isEnabled ? 1 : 0.4)
