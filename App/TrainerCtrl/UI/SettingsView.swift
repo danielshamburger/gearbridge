@@ -128,8 +128,9 @@ struct SettingsView: View {
     }
 
     private var logSection: some View {
-        Section("Packet log") {
-            LabeledContent("Entries", value: "\(bridge.logCount)")
+        Section {
+            Toggle("Debug mode", isOn: $bridge.debugMode)
+            LabeledContent("Log entries", value: "\(bridge.logCount)")
             Button("Export CSV") {
                 do {
                     shareItem = ShareItem(url: try bridge.writeLogFile())
@@ -138,6 +139,10 @@ struct SettingsView: View {
                 }
             }
             Button("Clear log", role: .destructive) { bridge.clearLog() }
+        } header: {
+            Text("Diagnostics")
+        } footer: {
+            Text("Debug mode shows Zwift's command and the trainer grade while riding, and logs every trainer reading. Off, the log keeps commands, responses and events only.")
         }
     }
 }

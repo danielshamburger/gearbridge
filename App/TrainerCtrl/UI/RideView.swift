@@ -153,14 +153,20 @@ struct RideView: View {
     private var liveSection: some View {
         Section {
             HStack {
-                Readout(title: "Power", value: bridge.latestData?.instantaneousPower.map { "\($0)" }, unit: "W")
-                Readout(title: "Cadence", value: bridge.latestData?.instantaneousCadence.map { String(format: "%.0f", $0) }, unit: "rpm")
-                Readout(title: "Speed", value: bridge.latestData?.instantaneousSpeed.map { String(format: "%.1f", $0) }, unit: "km/h")
+                let data = bridge.latestData
+                Readout(title: "Power", value: data?.instantaneousPower.map { "\($0)" }, unit: "W",
+                        gauge: data?.instantaneousPower.map(Double.init), range: 0...600, tint: .orange)
+                Readout(title: "Cadence", value: data?.instantaneousCadence.map { String(format: "%.0f", $0) }, unit: "rpm",
+                        gauge: data?.instantaneousCadence, range: 0...120, tint: .teal)
+                Readout(title: "Speed", value: data?.instantaneousSpeed.map { String(format: "%.1f", $0) }, unit: "km/h",
+                        gauge: data?.instantaneousSpeed, range: 0...60, tint: .indigo)
             }
             .padding(.vertical, 4)
-            LabeledContent("Zwift command", value: bridge.commandLabel)
-            if let grade = bridge.trainerGrade {
-                LabeledContent("Trainer grade", value: String(format: "%.1f%%", grade * 100))
+            if bridge.debugMode {
+                LabeledContent("Zwift command", value: bridge.commandLabel)
+                if let grade = bridge.trainerGrade {
+                    LabeledContent("Trainer grade", value: String(format: "%.1f%%", grade * 100))
+                }
             }
         }
     }
@@ -191,9 +197,15 @@ private struct Readout: View {
     let title: String
     let value: String?
     let unit: String
+    let gauge: Double?
+    let range: ClosedRange<Double>
+    let tint: Color
 
     var body: some View {
         VStack(spacing: 2) {
+            ArcGauge(value: gauge, range: range, tint: tint)
+                .frame(width: 64, height: 64)
+                .padding(.bottom, 4)
             Text(title).font(.caption).foregroundStyle(.secondary)
             Text(value ?? "–")
                 .font(.system(size: 36, weight: .semibold, design: .rounded))

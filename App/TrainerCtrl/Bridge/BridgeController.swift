@@ -88,6 +88,16 @@ final class BridgeController {
         }
     }
 
+    /// Shows the bridge's internals on the ride screen and logs every trainer
+    /// data packet. Off, the log keeps commands, responses and events only.
+    var debugMode: Bool {
+        didSet {
+            guard debugMode != oldValue else { return }
+            UserDefaults.standard.set(debugMode, forKey: Keys.debugMode)
+            record(.event, "settings", [], "debugMode=\(debugMode)")
+        }
+    }
+
     /// Preferred model; `activeModel` falls back to simple without a usable calibration.
     var shiftingModel: ShiftingModel {
         didSet {
@@ -170,6 +180,7 @@ final class BridgeController {
         static let virtualShifting = "virtualShifting"
         static let reportsPower = "reportsPower"
         static let volumeButtonsShift = "volumeButtonsShift"
+        static let debugMode = "debugMode"
         static let shiftingModel = "shiftingModel"
         static let calibration = "trainerCalibration"
         static let gearProfile = "gearProfile"
@@ -206,6 +217,7 @@ final class BridgeController {
         virtualShifting = defaults.bool(forKey: Keys.virtualShifting)
         reportsPower = defaults.bool(forKey: Keys.reportsPower)
         volumeButtonsShift = defaults.bool(forKey: Keys.volumeButtonsShift)
+        debugMode = defaults.bool(forKey: Keys.debugMode)
         shiftingModel = defaults.string(forKey: Keys.shiftingModel).flatMap(ShiftingModel.init) ?? .simple
         savedCalibration = defaults.data(forKey: Keys.calibration)
             .flatMap { try? JSONDecoder().decode(SavedCalibration.self, from: $0) }
@@ -493,7 +505,8 @@ final class BridgeController {
             perform(core.trainerDidConnect())
         case .data(let data, let raw):
             latestData = data
-            record(.fromTrainer, FTMSUUID.indoorBikeData, raw, data.logSummary)
+            // The bulk of the log (several a second); only kept in debug mode.
+            if debugMode { record(.fromTrainer, FTMSUUID.indoorBikeData, raw, data.logSummary) }
             perform(core.handleTrainerData(data, at: now))
             updateCalibration(with: data)
             refreshShiftState()
