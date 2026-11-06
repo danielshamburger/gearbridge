@@ -511,8 +511,9 @@ final class BridgeController {
             perform(core.trainerDidConnect())
         case .data(let data, let raw):
             latestData = data
-            if let watts = data.instantaneousPower { powerGauge.observe(Double(watts)) }
-            if let kmh = data.instantaneousSpeed { speedGauge.observe(kmh) }
+            let time = now
+            if let watts = data.instantaneousPower { powerGauge.observe(Double(watts), at: time) }
+            if let kmh = data.instantaneousSpeed { speedGauge.observe(kmh, at: time) }
             // The bulk of the log (several a second); only kept in debug mode.
             if debugMode { record(.fromTrainer, FTMSUUID.indoorBikeData, raw, data.logSummary) }
             perform(core.handleTrainerData(data, at: now))
