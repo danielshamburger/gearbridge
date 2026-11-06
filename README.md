@@ -73,9 +73,9 @@ cd TrainerCore && swift test
 
 ## Debugging
 
-- **Simulate:** under **Settings → Trainer → Source**, a pretend trainer for trying the app without the bike. Choosing it turns on debug mode.
 - **Debug mode:** under **Settings → Diagnostics**. It shows Zwift's command and the trainer grade while riding, and logs every trainer reading.
 - **Packet log:** each ride's commands, responses and events, exported as CSV from **Settings → Diagnostics**.
+- **Simulate:** under **Settings → Trainer → Source**, a pretend trainer for trying the app without the bike. Choosing it turns on debug mode.
 - **Failsafes:** if the trainer stops sending data, Zwift gets zeros. If Zwift disconnects or goes quiet, the trainer eases to a flat road.
 
 ## Layout
