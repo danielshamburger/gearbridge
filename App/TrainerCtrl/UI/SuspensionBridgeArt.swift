@@ -46,16 +46,43 @@ struct SuspensionBridgeArt: View {
             }
             stroke(hangers, line * 0.45, 0.6)
 
-            // Cable
-            var cable = Path()
-            cable.move(to: CGPoint(x: leftAnchor, y: anchorY))
+            // Cable, drawn as a bike chain: pins evenly spaced along the curve,
+            // joined by alternating outer and inner link plates.
+            var curve = [CGPoint(x: leftAnchor, y: anchorY)]
             var cx = leftAnchor
             while cx <= rightAnchor {
-                cable.addLine(to: CGPoint(x: cx, y: cableY(cx)))
-                cx += w / 200
+                curve.append(CGPoint(x: cx, y: cableY(cx)))
+                cx += w / 600
             }
-            cable.addLine(to: CGPoint(x: rightAnchor, y: anchorY))
-            stroke(cable, line)
+            curve.append(CGPoint(x: rightAnchor, y: anchorY))
+            let pitch = line * 4.2
+            var pins = [curve[0]]
+            var carried: CGFloat = 0
+            for (a, b) in zip(curve, curve.dropFirst()) {
+                let dx = b.x - a.x, dy = b.y - a.y
+                let length = hypot(dx, dy)
+                var along = pitch - carried
+                while along <= length {
+                    pins.append(CGPoint(x: a.x + dx * along / length, y: a.y + dy * along / length))
+                    along += pitch
+                }
+                carried = length - (along - pitch)
+            }
+            for (i, (a, b)) in zip(pins, pins.dropFirst()).enumerated() {
+                let outer = i.isMultiple(of: 2)
+                let height = line * (outer ? 2.3 : 1.7)
+                let length = hypot(b.x - a.x, b.y - a.y) + height
+                let plate = Path(roundedRect: CGRect(x: -length / 2, y: -height / 2, width: length, height: height),
+                                 cornerRadius: height / 2)
+                    .applying(CGAffineTransform(rotationAngle: atan2(b.y - a.y, b.x - a.x)))
+                    .applying(CGAffineTransform(translationX: (a.x + b.x) / 2, y: (a.y + b.y) / 2))
+                stroke(plate, line * 0.55)
+            }
+            for pin in pins {
+                let r = line * 0.55
+                ctx.fill(Path(ellipseIn: CGRect(x: pin.x - r, y: pin.y - r, width: r * 2, height: r * 2)),
+                         with: .color(.primary))
+            }
 
             // Deck with a stiffening truss under it, running off both edges
             let trussDepth = h * 0.035
