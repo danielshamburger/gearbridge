@@ -1,4 +1,4 @@
-<img src="docs/app-icon.png" width="128" alt="TrainerCtrl app icon">
+<p align="center"><img src="docs/app-icon.png" width="128" alt="TrainerCtrl app icon"></p>
 
 # TrainerCtrl
 
