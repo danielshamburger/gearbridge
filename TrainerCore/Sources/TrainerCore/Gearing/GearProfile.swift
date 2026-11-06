@@ -180,9 +180,9 @@ public struct GearProfile: Equatable, Sendable, Identifiable {
         ),
         try! .oneBy(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000007")!,
-            name: "1× 50T, 10–42",
+            name: "1× 50T, 10–44",
             chainring: 50,
-            cassette: [10, 12, 14, 16, 18, 21, 24, 28, 32, 36, 42]
+            cassette: [10, 11, 13, 15, 17, 19, 21, 24, 28, 32, 38, 44]   // SRAM XPLR 12-speed
         ),
     ]
 }
