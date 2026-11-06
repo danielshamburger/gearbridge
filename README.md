@@ -20,7 +20,7 @@ Tacx Flux S  ──BLE (FTMS)──▶  TrainerCtrl (iPhone)  ──BLE (FTMS)�
   - **Calibrated:** each gear matches the power and cadence a real gear would need. It needs a one-time trainer calibration, which the app guides you through.
 - If the trainer stops sending data, Zwift gets zeros. If Zwift disconnects or goes quiet, the trainer eases to a flat road.
 - A packet log for each ride, which you can export as CSV from Settings.
-- A mock trainer, so you can test without the real one.
+- A simulated trainer, so you can test without the real one.
 
 ## Requirements
 
@@ -63,7 +63,7 @@ cd TrainerCore && swift test
 
 | Path | What's there |
 |---|---|
-| `App/TrainerCtrl/BLE` | The trainer connection, the mock trainer, and the virtual trainer that Zwift sees |
+| `App/TrainerCtrl/BLE` | The trainer connection, the simulated trainer, and the virtual trainer that Zwift sees |
 | `App/TrainerCtrl/Bridge` | `BridgeController`: connects the pieces, stores settings, runs the ride |
 | `App/TrainerCtrl/UI` | Screens: home, ride, settings, gears, calibration |
 | `App/TrainerCtrlLiveActivity` | The lock screen and Dynamic Island widget extension |

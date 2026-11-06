@@ -35,7 +35,7 @@ struct RideView: View {
 
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: 6) {
-                        StatusPill(symbol: "dot.radiowaves.left.and.right", title: bridge.source.rawValue,
+                        StatusPill(symbol: "dot.radiowaves.left.and.right", title: bridge.source.name,
                                    detail: bridge.trainerState.label, health: trainerHealth)
                         StatusPill(symbol: "display", title: "Zwift",
                                    detail: bridge.zwiftLabel, health: zwiftHealth)

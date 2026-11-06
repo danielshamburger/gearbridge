@@ -105,5 +105,5 @@ Cheap, and they help both latency and battery:
 ## Measuring
 
 Before and after Part 1, and with step 6 on:
-- Xcode's Energy gauge during a 10-minute mock ride, with the screen at the same brightness each time.
+- Xcode's Energy gauge during a 10-minute simulated ride, with the screen at the same brightness each time.
 - Battery % over a one-hour real ride.

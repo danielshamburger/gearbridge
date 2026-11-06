@@ -23,7 +23,7 @@ final class MockTrainerLink: TrainerLink {
     private var trainer = MockTrainer(seed: UInt64.random(in: 1...UInt64.max))
     private var task: Task<Void, Never>?
     private let interval: TimeInterval = 0.5
-    private let name = "Mock trainer"
+    private let name = "Simulated trainer"
 
     func start() {
         guard task == nil else { return }

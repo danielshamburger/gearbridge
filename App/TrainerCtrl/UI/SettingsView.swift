@@ -96,7 +96,7 @@ struct SettingsList: View {
     var body: some View {
         List {
             Section {
-                row(.trainer, value: "\(bridge.source.rawValue) · \(bridge.rider.realChainring)×\(bridge.rider.realCog)")
+                row(.trainer, value: "\(bridge.source.name) · \(bridge.rider.realChainring)×\(bridge.rider.realCog)")
                 row(.zwift, value: bridge.reportsPower ? nil : "Power off")
             }
             Section {
@@ -152,7 +152,7 @@ private struct TrainerSettings: View {
         Form {
             Section {
                 Picker("Source", selection: $bridge.source) {
-                    ForEach(TrainerSource.allCases) { Text($0.rawValue).tag($0) }
+                    ForEach(TrainerSource.allCases) { Text($0.name).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 LabeledContent("Status", value: bridge.isRiding ? bridge.trainerState.label : "Connects when you start a ride")
@@ -160,7 +160,7 @@ private struct TrainerSettings: View {
                     LabeledContent("Last connected", value: last.formatted(date: .abbreviated, time: .shortened))
                 }
             } footer: {
-                Text("Mock is a simulated trainer for trying the app without the bike.")
+                Text("Simulate is a pretend trainer for trying the app without the bike.")
             }
             Section {
                 Stepper(value: $bridge.rider.realChainring, in: 20...60) {

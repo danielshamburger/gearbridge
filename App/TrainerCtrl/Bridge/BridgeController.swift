@@ -21,9 +21,17 @@ struct SavedCalibration: Codable, Equatable {
 
 enum TrainerSource: String, CaseIterable, Identifiable {
     case bluetooth = "Flux S"
-    case mock = "Mock"
+    case mock = "Mock" // the stored value; shown as "Simulate"
 
     var id: Self { self }
+
+    /// What the app calls it.
+    var name: String {
+        switch self {
+        case .bluetooth: "Flux S"
+        case .mock: "Simulate"
+        }
+    }
 }
 
 /// Wires the trainer link, the virtual trainer Zwift pairs to, `BridgeCore`

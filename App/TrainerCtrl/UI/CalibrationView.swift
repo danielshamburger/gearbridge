@@ -92,7 +92,7 @@ private struct IntroView: View {
             }
             if bridge.source == .mock {
                 Section {
-                    Toggle("Mock rider follows targets", isOn: $bridge.mockFollowsCalibration)
+                    Toggle("Simulated rider follows targets", isOn: $bridge.mockFollowsCalibration)
                 }
             }
             Section {
@@ -143,7 +143,7 @@ private struct RunningView: View {
             }
             if bridge.source == .mock {
                 Section {
-                    Toggle("Mock rider follows targets", isOn: $bridge.mockFollowsCalibration)
+                    Toggle("Simulated rider follows targets", isOn: $bridge.mockFollowsCalibration)
                     if !bridge.mockFollowsCalibration {
                         CadenceSlider(cadence: $bridge.mockCadence)
                     }
