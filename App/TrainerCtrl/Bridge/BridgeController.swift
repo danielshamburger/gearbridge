@@ -20,8 +20,8 @@ struct SavedCalibration: Codable, Equatable {
 }
 
 enum TrainerSource: String, CaseIterable, Identifiable {
-    case mock = "Mock"
     case bluetooth = "Flux S"
+    case mock = "Mock"
 
     var id: Self { self }
 }
@@ -33,8 +33,13 @@ enum TrainerSource: String, CaseIterable, Identifiable {
 final class BridgeController {
     static let advertisedName = "TrainerCtrl"
 
+    /// Which trainer a ride connects to. Saved; the real trainer by default.
     var source: TrainerSource {
-        didSet { if source != oldValue, isRiding { connectTrainer() } }
+        didSet {
+            guard source != oldValue else { return }
+            UserDefaults.standard.set(source.rawValue, forKey: Keys.source)
+            if isRiding { connectTrainer() }
+        }
     }
 
     var mockCadence: Double = 0 {
@@ -198,6 +203,7 @@ final class BridgeController {
         static let volumeButtonsShift = "volumeButtonsShift"
         static let debugMode = "debugMode"
         static let speedUnit = "speedUnit"
+        static let source = "trainerSource"
         static let shiftingModel = "shiftingModel"
         static let calibration = "trainerCalibration"
         static let gearProfile = "gearProfile"
@@ -219,9 +225,9 @@ final class BridgeController {
         return Double(d.components.seconds) + Double(d.components.attoseconds) / 1e18
     }
 
-    init(source: TrainerSource = .mock) {
-        self.source = source
+    init() {
         let defaults = UserDefaults.standard
+        source = defaults.string(forKey: Keys.source).flatMap(TrainerSource.init) ?? .bluetooth
         defaults.register(defaults: [
             Keys.virtualShifting: true,
             Keys.reportsPower: true,

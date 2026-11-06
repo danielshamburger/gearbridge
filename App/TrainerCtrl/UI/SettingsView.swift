@@ -121,7 +121,7 @@ struct SettingsView: View {
                 ForEach(TrainerSource.allCases) { Text($0.rawValue).tag($0) }
             }
             .pickerStyle(.segmented)
-            LabeledContent("Status", value: bridge.trainerState.label)
+            LabeledContent("Status", value: bridge.isRiding ? bridge.trainerState.label : "Connects when you start a ride")
         }
     }
 
