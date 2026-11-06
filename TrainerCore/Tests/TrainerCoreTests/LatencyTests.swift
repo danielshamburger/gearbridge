@@ -82,6 +82,51 @@ struct LatencyTests {
         }
     }
 
+    // The app sets one timer for `flushDue` instead of polling `flush` at 50 Hz.
+
+    @Test func flushDueIsNilWhenNothingIsHeldBack() {
+        var b = bridge(calibrated)
+        #expect(b.flushDue == nil)
+        _ = b.handleTrainerData(data, at: 1.0)
+        #expect(b.flushDue == nil)
+        _ = b.shift(.up, at: 1.1)                          // shifts go out at once
+        #expect(b.flushDue == nil)
+        _ = b.handleTrainerData(data, at: 1.2)             // same road, same speed: nothing to send
+        #expect(b.flushDue == nil)
+    }
+
+    @Test func heldBackResendIsDueAtTheInterval() throws {
+        var b = bridge(calibrated)
+        _ = b.handleTrainerData(data, at: 1.0)             // sends at 1.0
+        var faster = data
+        faster.instantaneousSpeed = (data.instantaneousSpeed ?? 30) + 15
+        #expect(grades(b.handleTrainerData(faster, at: 1.1)).isEmpty)
+        let due = try #require(b.flushDue)
+        #expect(abs(due - 1.25) < 1e-9)
+        #expect(grades(b.flush(at: due)).count == 1)
+        #expect(b.flushDue == nil)
+    }
+
+    @Test func flushDueClearsWhenTheChangeGoesAway() {
+        var b = bridge(calibrated)
+        _ = b.handleTrainerData(data, at: 1.0)
+        var faster = data
+        faster.instantaneousSpeed = (data.instantaneousSpeed ?? 30) + 15
+        _ = b.handleTrainerData(faster, at: 1.1)
+        _ = b.handleTrainerData(data, at: 1.3)             // back to the speed last sent
+        #expect(b.flushDue == nil)
+    }
+
+    @Test func flushDueIsNilInERG() {
+        var b = bridge(calibrated)
+        _ = b.handleTrainerData(data, at: 1.0)
+        var faster = data
+        faster.instantaneousSpeed = (data.instantaneousSpeed ?? 30) + 15
+        _ = b.handleTrainerData(faster, at: 1.1)
+        _ = b.handleZwift(.setTargetPower(watts: 200), at: 1.15)
+        #expect(b.flushDue == nil)
+    }
+
     @Test func flushDoesNothingWithoutEngineOrInERG() {
         var plain = bridge(nil)
         #expect(plain.flush(at: 5).isEmpty)

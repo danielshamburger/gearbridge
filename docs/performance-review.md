@@ -86,6 +86,8 @@ When `updateValue` fails because the transmit queue is full, `VirtualTrainerPeri
 - Copy `log` (a cheap copy-on-write value) and build and write the CSV in a detached task.
 - Format hex with a lookup table instead of `String(format:)`.
 
+**Done (2026-11-06):** all three.
+
 ### 7. A full log costs time on every packet (low now, grows with ride length)
 
 At capacity (200k entries), each append calls `entries.removeFirst(overflow)` (`PacketLog.swift:45`). That shifts the whole array: about 200k moves on every packet, on the main thread. At ~15 entries/s the log fills after about 3.5 hours. Memory before that is roughly 30–50 MB, because each entry holds a heap `String` and a `[UInt8]`.
@@ -93,6 +95,8 @@ At capacity (200k entries), each append calls `entries.removeFirst(overflow)` (`
 **Fix:**
 - Use a ring buffer, or stream entries to a file on a background queue.
 - Store `summary` lazily: keep the decoded value and format it at export time.
+
+**Done (2026-11-06):** a ring buffer, and trainer data entries keep the decoded values until export.
 
 ### 8. SwiftUI and Bluetooth share the main thread (low to medium)
 

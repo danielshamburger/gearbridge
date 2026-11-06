@@ -37,6 +37,14 @@ final class VirtualTrainerPeripheral: NSObject {
     private var pending: [(Data, CBMutableCharacteristic)] = []
     private let maxPending = 50
 
+    /// Advertising stops once Zwift has been subscribed this long with no
+    /// change, to save power: a connected Zwift doesn't need it. Not straight
+    /// away, because pairing Power, Controllable and Cadence one after another
+    /// in Zwift's pairing screen relies on the app still showing up there.
+    /// It restarts the moment Zwift unsubscribes, so a reconnect finds it.
+    static let advertisingSettleTime: Duration = .seconds(60)
+    private var settleTask: Task<Void, Never>?
+
     private let indoorBikeData = CBMutableCharacteristic(
         type: CBUUID(string: FTMSUUID.indoorBikeData), properties: [.notify], value: nil, permissions: [.readable])
     private let controlPoint = CBMutableCharacteristic(
@@ -79,12 +87,16 @@ final class VirtualTrainerPeripheral: NSObject {
         } else {
             publish()
         }
+        // Zwift's subscriptions outlive a ride, so it may already be connected.
+        if subscriberCount > 0 { scheduleAdvertisingPause() }
     }
 
     /// Stops advertising. The service and any Zwift subscriptions stay, so
     /// the next ride carries on without re-pairing.
     func stop() {
         wantsAdvertising = false
+        settleTask?.cancel()
+        settleTask = nil
         manager?.stopAdvertising()
         pending = []
         state = .stopped
@@ -162,6 +174,29 @@ final class VirtualTrainerPeripheral: NSObject {
 
     private func updateSubscriberCount() {
         subscriberCount = indoorBikeData.subscribedCentrals?.count ?? 0
+        if subscriberCount > 0 {
+            scheduleAdvertisingPause() // each subscribe or unsubscribe restarts the wait
+        } else {
+            settleTask?.cancel()
+            settleTask = nil
+            if wantsAdvertising, let manager, serviceAdded, !manager.isAdvertising {
+                onLog?("Zwift gone: advertising again")
+                startAdvertising(manager)
+            }
+        }
+    }
+
+    private func scheduleAdvertisingPause() {
+        settleTask?.cancel()
+        settleTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.advertisingSettleTime)
+            guard !Task.isCancelled, let self else { return }
+            self.settleTask = nil
+            guard self.wantsAdvertising, self.subscriberCount > 0,
+                  let manager = self.manager, manager.isAdvertising else { return }
+            manager.stopAdvertising()
+            self.onLog?("Zwift connected: advertising paused")
+        }
     }
 }
 

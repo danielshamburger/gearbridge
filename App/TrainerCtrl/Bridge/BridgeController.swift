@@ -135,6 +135,14 @@ final class BridgeController {
         }
     }
 
+    /// Dims the screen after 15 s without a touch while riding. Off by default.
+    var dimWhileRiding: Bool {
+        didSet {
+            guard dimWhileRiding != oldValue else { return }
+            UserDefaults.standard.set(dimWhileRiding, forKey: Keys.dimWhileRiding)
+        }
+    }
+
     /// Shows the bridge's internals on the ride screen and logs every trainer
     /// data packet. Off, the log keeps commands, responses and events only.
     var debugMode: Bool {
@@ -225,7 +233,9 @@ final class BridgeController {
     @ObservationIgnored private let haptics = ShiftHaptics()
     @ObservationIgnored private let clockStart = ContinuousClock.now
     @ObservationIgnored private var tickTask: Task<Void, Never>?
-    @ObservationIgnored private var controlTask: Task<Void, Never>?
+    @ObservationIgnored private var flushTask: Task<Void, Never>?
+    /// When `flushTask` fires, so it's only re-armed when that changes.
+    @ObservationIgnored private var flushScheduledFor: TimeInterval?
     @ObservationIgnored private var backgroundGuard = BackgroundRideGuard()
     @ObservationIgnored private let liveActivity = RideActivityController()
     /// Why the last ride ended on its own, for the home screen. Cleared on the next ride.
@@ -240,6 +250,7 @@ final class BridgeController {
         static let lastZwiftConnection = "lastZwiftConnection"
         static let trainerBluetoothName = "trainerBluetoothName"
         static let speedUnit = "speedUnit"
+        static let dimWhileRiding = "dimWhileRiding"
         static let source = "trainerSource"
         static let shiftingModel = "shiftingModel"
         static let calibration = "trainerCalibration"
@@ -282,6 +293,7 @@ final class BridgeController {
         volumeButtonsShift = defaults.bool(forKey: Keys.volumeButtonsShift)
         debugMode = defaults.bool(forKey: Keys.debugMode)
         speedUnit = defaults.string(forKey: Keys.speedUnit).flatMap(SpeedUnit.init) ?? .localeDefault
+        dimWhileRiding = defaults.bool(forKey: Keys.dimWhileRiding)
         shiftingModel = defaults.string(forKey: Keys.shiftingModel).flatMap(ShiftingModel.init) ?? .simple
         savedCalibration = defaults.data(forKey: Keys.calibration)
             .flatMap { try? JSONDecoder().decode(SavedCalibration.self, from: $0) }
@@ -330,7 +342,6 @@ final class BridgeController {
         peripheral.start()
         connectTrainer()
         startTicking()
-        startControlLoop()
         liveActivity.start(activityState)
     }
 
@@ -358,13 +369,13 @@ final class BridgeController {
         calibrationRun = nil
         tickTask?.cancel()
         tickTask = nil
-        controlTask?.cancel()
-        controlTask = nil
+        cancelFlush()
         link?.onEvent = nil
         link?.stop()
         link = nil
         peripheral.stop()
         record(.event, "ride", [], "end")
+        logCount = log.count
         trainerState = .idle
         latestData = nil
         trainerFeature = nil
@@ -467,22 +478,22 @@ final class BridgeController {
         refreshShiftState()
     }
 
+    /// Runs on every trainer packet, so it only assigns what changed: each
+    /// assignment to an observed property redraws the views that read it.
     private func refreshShiftState() {
-        if let engine = core.engine {
-            gearNumber = engine.gearbox.gearNumber
-            gearCount = engine.gearbox.profile.gearCount
-            gearRatio = engine.gearbox.targetRatio
-            gearLabel = engine.gearbox.profile.label(ofGear: engine.gearbox.gearIndex)
-        } else {
-            gearNumber = nil
-            gearCount = 0
-            gearRatio = nil
-            gearLabel = nil
-        }
+        let engine = core.engine
+        setIfChanged(\.gearNumber, engine?.gearbox.gearNumber)
+        setIfChanged(\.gearCount, engine?.gearbox.profile.gearCount ?? 0)
+        setIfChanged(\.gearRatio, engine?.gearbox.targetRatio)
+        setIfChanged(\.gearLabel, engine.map { $0.gearbox.profile.label(ofGear: $0.gearbox.gearIndex) } ?? nil)
         let command = core.lastEngineCommand
-        trainerGrade = command?.parameters.grade
-        limit = command?.limit ?? .none
-        if isRiding { liveActivity.update(activityState) }
+        setIfChanged(\.trainerGrade, command?.parameters.grade)
+        setIfChanged(\.limit, command?.limit ?? .none)
+        if isRiding { liveActivity.update(activityState) } // skips unchanged states itself
+    }
+
+    private func setIfChanged<Value: Equatable>(_ keyPath: ReferenceWritableKeyPath<BridgeController, Value>, _ value: Value) {
+        if self[keyPath: keyPath] != value { self[keyPath: keyPath] = value }
     }
 
     /// What the lock screen and Dynamic Island show.
@@ -492,23 +503,35 @@ final class BridgeController {
             cogSizes: profile.cogSizes, label: gearLabel)
     }
 
-    // MARK: Control loop
+    // MARK: Deferred sends
 
-    /// 50 Hz while riding: sends a command the throttle deferred (a shift or
-    /// Zwift grade within 0.25 s of the last send) as soon as it's allowed,
-    /// rather than at the next trainer data packet. Usually does nothing.
-    private func startControlLoop() {
-        controlTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(20))
-                guard let self else { return }
-                let outputs = self.core.flush(at: self.now)
-                if !outputs.isEmpty {
-                    self.perform(outputs)
-                    self.refreshShiftState()
-                }
-            }
+    /// Sets one timer for a trainer re-send the throttle held back (see
+    /// `BridgeCore.flushDue`), rather than polling at 50 Hz. Shifts and Zwift
+    /// commands never wait for this; it's only for routine re-sends, so they go
+    /// out on time instead of at the next trainer data packet.
+    private func scheduleFlush() {
+        guard isRiding, let due = core.flushDue else {
+            cancelFlush()
+            return
         }
+        guard due != flushScheduledFor else { return }
+        flushTask?.cancel()
+        flushScheduledFor = due
+        let delay = max(0, due - now)
+        flushTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled, let self else { return }
+            self.flushScheduledFor = nil
+            self.flushTask = nil
+            self.perform(self.core.flush(at: max(self.now, due)))
+            self.refreshShiftState()
+        }
+    }
+
+    private func cancelFlush() {
+        flushTask?.cancel()
+        flushTask = nil
+        flushScheduledFor = nil
     }
 
     // MARK: Failure handling
@@ -539,10 +562,11 @@ final class BridgeController {
             case .zwiftQuiet: record(.event, "failsafe", [], "Zwift quiet: trainer eased to flat")
             case .none: break
             }
-            zwiftMode = core.zwiftMode
+            setIfChanged(\.zwiftMode, core.zwiftMode)
             refreshShiftState()
         }
-        fallback = core.fallback
+        setIfChanged(\.fallback, core.fallback)
+        setIfChanged(\.logCount, log.count) // once a second, not per entry
     }
 
     /// A one-line warning for the main screen, if something needs attention.
@@ -581,12 +605,18 @@ final class BridgeController {
 
     // MARK: Packet log
 
-    func writeLogFile() throws -> URL {
+    /// Writes the log as CSV. The log is copied (cheap: copy-on-write) and
+    /// formatted off the main thread, so a long ride's export doesn't freeze
+    /// the screen, or the ride if one is going.
+    func writeLogFile() async throws -> URL {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmmss"
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("trainerctrl-\(formatter.string(from: logStart)).csv")
-        try log.csv().write(to: url, atomically: true, encoding: .utf8)
+        let snapshot = log
+        try await Task.detached(priority: .userInitiated) {
+            try snapshot.csv().write(to: url, atomically: true, encoding: .utf8)
+        }.value
         return url
     }
 
@@ -598,7 +628,6 @@ final class BridgeController {
 
     private func record(_ direction: PacketLog.Direction, _ channel: String, _ bytes: [UInt8] = [], _ summary: String = "") {
         log.append(at: Date().timeIntervalSince(logStart), direction, channel, bytes: bytes, summary: summary)
-        logCount = log.entries.count
     }
 
     // MARK: Trainer side
@@ -668,7 +697,10 @@ final class BridgeController {
             if let watts = data.instantaneousPower { powerGauge.observe(Double(watts), at: time) }
             if let kmh = data.instantaneousSpeed { speedGauge.observe(kmh, at: time) }
             // The bulk of the log (several a second); only kept in debug mode.
-            if debugMode { record(.fromTrainer, FTMSUUID.indoorBikeData, raw, data.logSummary) }
+            if debugMode {
+                log.append(at: Date().timeIntervalSince(logStart), .fromTrainer, FTMSUUID.indoorBikeData,
+                           bytes: raw, data: data)
+            }
             perform(core.handleTrainerData(data, at: now))
             updateCalibration(with: data)
             refreshShiftState()
@@ -698,8 +730,8 @@ final class BridgeController {
         let summary = (try? ControlPointRequest(bytes: bytes))?.logSummary ?? "malformed"
         record(.fromZwift, FTMSUUID.controlPoint, bytes, summary)
         perform(core.handleZwiftWrite(bytes, at: now))
-        zwiftMode = core.zwiftMode
-        fallback = core.fallback
+        setIfChanged(\.zwiftMode, core.zwiftMode)
+        setIfChanged(\.fallback, core.fallback)
         refreshShiftState()
     }
 
@@ -719,6 +751,7 @@ final class BridgeController {
                 link?.send(request)
             }
         }
+        scheduleFlush()
     }
 }
 

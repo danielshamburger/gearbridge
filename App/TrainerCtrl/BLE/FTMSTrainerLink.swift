@@ -80,6 +80,7 @@ final class FTMSTrainerLink: NSObject, TrainerLink {
         let raw = request.encoded()
         peripheral.writeValue(Data(raw), for: controlPoint, type: .withResponse)
         onEvent?(.sent(request, raw: raw))
+        armTimeout()
     }
 
     private func beginConnecting(_ central: CBCentralManager) {
@@ -101,15 +102,23 @@ final class FTMSTrainerLink: NSObject, TrainerLink {
         central.connect(target)
     }
 
-    private func startTimeoutLoop() {
+    /// One timer per request in flight, rather than a 10 Hz loop: if the
+    /// trainer hasn't answered by the queue's timeout, give up on it and send
+    /// the next. Cancelled when the answer arrives.
+    private func armTimeout() {
         timeoutTask?.cancel()
+        let delay = queue.timeout + 0.01 // a hair over, so checkTimeout agrees it's late
         timeoutTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(100))
-                guard let self else { return }
-                if let next = self.queue.checkTimeout(at: self.now) { self.write(next) }
-            }
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled, let self else { return }
+            self.timeoutTask = nil
+            if let next = self.queue.checkTimeout(at: self.now) { self.write(next) }
         }
+    }
+
+    private func cancelTimeout() {
+        timeoutTask?.cancel()
+        timeoutTask = nil
     }
 }
 
@@ -196,7 +205,6 @@ extension FTMSTrainerLink: @preconcurrency CBPeripheralDelegate {
     ) {
         guard characteristic.uuid == UUIDs.controlPoint, characteristic.isNotifying else { return }
         onEvent?(.state(.connected(peripheralName)))
-        startTimeoutLoop()
         onEvent?(.ready)
     }
 
@@ -211,7 +219,12 @@ extension FTMSTrainerLink: @preconcurrency CBPeripheralDelegate {
             case UUIDs.controlPoint:
                 let response = try ControlPointResponse(bytes: raw)
                 onEvent?(.response(response, raw: raw))
-                if let next = queue.didReceive(response, at: now) { write(next) }
+                let wasInFlight = queue.inFlight?.request.opcode == response.requestOpcode
+                if let next = queue.didReceive(response, at: now) {
+                    write(next) // re-arms the timeout
+                } else if wasInFlight {
+                    cancelTimeout()
+                }
             case UUIDs.status:
                 onEvent?(.status(try FitnessMachineStatus(bytes: raw), raw: raw))
             case UUIDs.feature:

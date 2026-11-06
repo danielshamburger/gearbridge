@@ -238,9 +238,18 @@ public struct BridgeCore: Sendable {
         return outputs
     }
 
-    /// Call often (the app uses 50 Hz). Sends a deferred command as soon as the
-    /// throttle allows, e.g. a shift that came within `minimumInterval` of the
-    /// previous send, instead of waiting for the next trainer data packet.
+    /// When `flush(at:)` has something to send: a re-send the throttle held
+    /// back. Nil when nothing is waiting, so the app sets one timer for this
+    /// time rather than polling. Shifts and Zwift commands go out at once and
+    /// never wait here.
+    public var flushDue: TimeInterval? {
+        guard engine != nil, trainerOverride == nil, trainerHasControl else { return nil }
+        if case .targetPower = zwiftMode { return nil }
+        return throttle.nextDue
+    }
+
+    /// Sends a command the throttle held back, once it's allowed (at
+    /// `flushDue`), instead of waiting for the next trainer data packet.
     /// Does nothing without an engine, in ERG, or during an override.
     public mutating func flush(at time: TimeInterval) -> [Output] {
         guard engine != nil, trainerOverride == nil else { return [] }

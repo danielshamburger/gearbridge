@@ -143,6 +143,33 @@ struct PacketLogTests {
         #expect(log.droppedCount == 1)
     }
 
+    @Test func hexFormatting() {
+        var log = PacketLog()
+        log.append(at: 0, .event, "x", bytes: [0x00, 0x0F, 0xA5, 0xFF])
+        #expect(log.entries[0].hex == "00 0F A5 FF")
+        log.append(at: 0, .event, "y")
+        #expect(log.entries[1].hex == "")
+    }
+
+    @Test func ringBufferKeepsOrderAcrossManyWraps() {
+        var log = PacketLog(capacity: 3)
+        for i in 0..<10 { log.append(at: Double(i), .event, "e\(i)") }
+        #expect(log.entries.map(\.channel) == ["e7", "e8", "e9"])
+        #expect(log.count == 3)
+        #expect(log.droppedCount == 7)
+        log.clear()
+        log.append(at: 0, .event, "after")
+        #expect(log.entries.map(\.channel) == ["after"])
+    }
+
+    @Test func bikeDataSummaryIsFormattedOnExport() {
+        var log = PacketLog()
+        let data = IndoorBikeData(instantaneousSpeed: 31.5, instantaneousCadence: 85, instantaneousPower: 177)
+        log.append(at: 2, .fromTrainer, "2AD2", bytes: [0x01], data: data)
+        #expect(log.entries[0].summary == "speed=31.50kmh cadence=85.0 power=177")
+        #expect(log.csv().hasSuffix(",trainer>app,2AD2,01,speed=31.50kmh cadence=85.0 power=177\n"))
+    }
+
     @Test func summaries() {
         let data = IndoorBikeData(instantaneousSpeed: 31.5, instantaneousCadence: 85, instantaneousPower: 177)
         #expect(data.logSummary == "speed=31.50kmh cadence=85.0 power=177")

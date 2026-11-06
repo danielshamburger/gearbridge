@@ -44,7 +44,7 @@ public struct ExponentialSmoother: Sendable {
 /// rest, and the Flux S takes ~0.26 s to answer each one, so spacing forced
 /// sends out as well only added delay (measured 2026-11-05: up to ~50 ms per
 /// shift on top of the queue wait). The interval still limits the routine
-/// re-sends driven by trainer data.
+/// re-sends driven by trainer data; one held back by it is due at `nextDue`.
 public struct CommandThrottle: Sendable {
     public var minimumInterval: TimeInterval
     /// Smallest grade change worth sending, as a fraction (0.001 = 0.1 %).
@@ -53,6 +53,15 @@ public struct CommandThrottle: Sendable {
     public private(set) var lastSent: SimulationParameters?
     private var lastSendTime: TimeInterval?
     private var pending = false
+    /// A changed command was held back by the interval and hasn't gone out yet.
+    private var deferred = false
+
+    /// When a command held back by the interval may go out, so the caller can
+    /// set one timer for it instead of polling. Nil when nothing is waiting.
+    public var nextDue: TimeInterval? {
+        guard deferred, let lastSendTime else { return nil }
+        return lastSendTime + minimumInterval
+    }
 
     public init(minimumInterval: TimeInterval = 0.25, gradeThreshold: Double = 0.001) {
         self.minimumInterval = minimumInterval
@@ -71,13 +80,18 @@ public struct CommandThrottle: Sendable {
             record(q, time)
             return true
         }
-        guard force || time - lastTime >= minimumInterval else { return false }
-
         let changed = abs(q.grade - last.grade) > gradeThreshold
             || q.crr != last.crr
             || q.cw != last.cw
             || q.windSpeed != last.windSpeed
-        guard changed || pending else { return false }
+        guard force || time - lastTime >= minimumInterval else {
+            if changed || pending { deferred = true }
+            return false
+        }
+        guard changed || pending else {
+            deferred = false
+            return false
+        }
         record(q, time)
         return true
     }
@@ -86,11 +100,13 @@ public struct CommandThrottle: Sendable {
         lastSent = nil
         lastSendTime = nil
         pending = false
+        deferred = false
     }
 
     private mutating func record(_ parameters: SimulationParameters, _ time: TimeInterval) {
         lastSent = parameters
         lastSendTime = time
         pending = false
+        deferred = false
     }
 }

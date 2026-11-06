@@ -271,6 +271,11 @@ private struct DisplaySettings: View {
             } header: {
                 Text("Units")
             }
+            Section {
+                Toggle("Dim screen while riding", isOn: $bridge.dimWhileRiding)
+            } footer: {
+                Text("Saves battery on long rides. After 15 seconds without a touch the screen dims; touch it to bring it back. Volume-button shifts don't wake it.")
+            }
         }
         .navigationTitle("Display")
     }
@@ -280,6 +285,7 @@ private struct DiagnosticsSettings: View {
     @Bindable var bridge: BridgeController
     @State private var shareItem: ShareItem?
     @State private var exportError: String?
+    @State private var exporting = false
 
     var body: some View {
         Form {
@@ -290,13 +296,26 @@ private struct DiagnosticsSettings: View {
             }
             Section("Packet log") {
                 LabeledContent("Entries", value: "\(bridge.logCount)")
-                Button("Export CSV") {
-                    do {
-                        shareItem = ShareItem(url: try bridge.writeLogFile())
-                    } catch {
-                        exportError = error.localizedDescription
+                Button {
+                    exporting = true
+                    Task {
+                        do {
+                            shareItem = ShareItem(url: try await bridge.writeLogFile())
+                        } catch {
+                            exportError = error.localizedDescription
+                        }
+                        exporting = false
+                    }
+                } label: {
+                    HStack {
+                        Text("Export CSV")
+                        if exporting {
+                            Spacer()
+                            ProgressView()
+                        }
                     }
                 }
+                .disabled(exporting)
                 Button("Clear log", role: .destructive) { bridge.clearLog() }
             }
         }

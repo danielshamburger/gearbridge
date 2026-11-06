@@ -15,6 +15,9 @@ struct RideView: View {
     @State private var limitMessage: String?
     @State private var showingSettings = false
     @State private var confirmingEnd = false
+    @State private var dimmer = ScreenDimmer()
+    @State private var isOnScreen = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         NavigationStack {
@@ -66,12 +69,18 @@ struct RideView: View {
                 VolumeButtonHost(shifter: volumeShifter).frame(width: 1, height: 1)
             }
         }
+        // Every touch, without taking it from the buttons, wakes a dimmed screen.
+        .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in dimmer.touched() })
+        .onChange(of: dimmingAllowed, initial: true) { _, allowed in dimmer.enabled = allowed }
         .onAppear {
+            isOnScreen = true
             UIApplication.shared.isIdleTimerDisabled = true
             volumeShifter.onShift = { [bridge] direction in bridge.shift(direction) }
             updateVolumeShifter()
         }
         .onDisappear {
+            isOnScreen = false
+            dimmer.enabled = false // puts the brightness back
             UIApplication.shared.isIdleTimerDisabled = false
             volumeShifter.onShift = nil
             volumeShifter.stop()
@@ -111,6 +120,12 @@ struct RideView: View {
         // ride ↔ home change is an ordinary crossfade. Home and Settings outside
         // a ride follow the system setting.
         .environment(\.colorScheme, .dark)
+    }
+
+    /// Not while Settings is open over the ride (its touches don't reach this
+    /// view), or with the app inactive or in the background.
+    private var dimmingAllowed: Bool {
+        bridge.dimWhileRiding && isOnScreen && scenePhase == .active && !showingSettings
     }
 
     private var volumeShiftingActive: Bool {

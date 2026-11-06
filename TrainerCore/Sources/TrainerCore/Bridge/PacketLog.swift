@@ -1,6 +1,10 @@
 import Foundation
 
 /// Every packet and bridge event, exported as CSV for tuning and calibration.
+///
+/// A ring buffer: when full, the oldest entry is overwritten, so a long ride
+/// costs the same per packet as a short one. Summaries of trainer data are
+/// kept as the decoded values and only turned into text on export.
 public struct PacketLog: Sendable {
     public enum Direction: String, Sendable {
         case fromTrainer = "trainer>app"
@@ -10,6 +14,19 @@ public struct PacketLog: Sendable {
         case event
     }
 
+    /// An entry's description, formatted when it's read.
+    public enum Detail: Equatable, Sendable {
+        case text(String)
+        case bikeData(IndoorBikeData)
+
+        public var summary: String {
+            switch self {
+            case .text(let text): text
+            case .bikeData(let data): data.logSummary
+            }
+        }
+    }
+
     public struct Entry: Equatable, Sendable {
         /// Seconds since the log started.
         public var time: TimeInterval
@@ -17,20 +34,42 @@ public struct PacketLog: Sendable {
         /// Characteristic or event name, e.g. "2AD2" or "shift".
         public var channel: String
         public var bytes: [UInt8]
-        public var summary: String
+        public var detail: Detail
 
+        public var summary: String { detail.summary }
+
+        /// "11 00 2A": a lookup table, not `String(format:)` per byte (export speed).
         public var hex: String {
-            bytes.map { String(format: "%02X", $0) }.joined(separator: " ")
+            var out = [UInt8]()
+            out.reserveCapacity(bytes.count * 3)
+            for (i, byte) in bytes.enumerated() {
+                if i > 0 { out.append(0x20) }
+                out.append(Self.hexDigits[Int(byte >> 4)])
+                out.append(Self.hexDigits[Int(byte & 0x0F)])
+            }
+            return String(decoding: out, as: UTF8.self)
         }
+
+        private static let hexDigits = Array("0123456789ABCDEF".utf8)
     }
 
     public let capacity: Int
-    public private(set) var entries: [Entry] = []
     /// Entries dropped because the log was full (oldest go first).
     public private(set) var droppedCount = 0
 
+    private var storage: [Entry] = []
+    /// Where the oldest entry is, once the buffer has wrapped.
+    private var head = 0
+
     public init(capacity: Int = 200_000) {
         self.capacity = max(capacity, 1)
+    }
+
+    public var count: Int { storage.count }
+
+    /// Oldest first.
+    public var entries: [Entry] {
+        Array(storage[head...] + storage[..<head])
     }
 
     public mutating func append(
@@ -40,32 +79,52 @@ public struct PacketLog: Sendable {
         bytes: [UInt8] = [],
         summary: String = ""
     ) {
-        if entries.count >= capacity {
-            let overflow = entries.count - capacity + 1
-            entries.removeFirst(overflow)
-            droppedCount += overflow
+        append(Entry(time: time, direction: direction, channel: channel, bytes: bytes, detail: .text(summary)))
+    }
+
+    /// Trainer data: the summary is formatted on export, not per packet.
+    public mutating func append(
+        at time: TimeInterval,
+        _ direction: Direction,
+        _ channel: String,
+        bytes: [UInt8],
+        data: IndoorBikeData
+    ) {
+        append(Entry(time: time, direction: direction, channel: channel, bytes: bytes, detail: .bikeData(data)))
+    }
+
+    private mutating func append(_ entry: Entry) {
+        if storage.count < capacity {
+            storage.append(entry)
+        } else {
+            storage[head] = entry
+            head = (head + 1) % capacity
+            droppedCount += 1
         }
-        entries.append(Entry(time: time, direction: direction, channel: channel, bytes: bytes, summary: summary))
     }
 
     public mutating func clear() {
-        entries.removeAll()
+        storage.removeAll()
+        head = 0
         droppedCount = 0
     }
 
     public func csv() -> String {
-        var lines = ["time_s,direction,channel,hex,summary"]
-        lines.reserveCapacity(entries.count + 1)
+        var out = "time_s,direction,channel,hex,summary\n"
+        out.reserveCapacity(storage.count * 64)
         for e in entries {
-            lines.append([
-                String(format: "%.3f", e.time),
-                e.direction.rawValue,
-                csvField(e.channel),
-                e.hex,
-                csvField(e.summary),
-            ].joined(separator: ","))
+            out += String(format: "%.3f", e.time)
+            out += ","
+            out += e.direction.rawValue
+            out += ","
+            out += csvField(e.channel)
+            out += ","
+            out += e.hex
+            out += ","
+            out += csvField(e.summary)
+            out += "\n"
         }
-        return lines.joined(separator: "\n") + "\n"
+        return out
     }
 
     private func csvField(_ s: String) -> String {

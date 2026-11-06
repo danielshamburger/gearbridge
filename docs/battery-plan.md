@@ -1,12 +1,14 @@
 # Plan: battery improvements
 
-The background is in [battery-review.md](battery-review.md). None of this is started.
+The background is in [battery-review.md](battery-review.md). Steps 1–7 are done (2026-11-06); the device checks under step 7 and the measuring below are still to do.
 
 **Rule for every step:** no added latency for shifts or Zwift grades. Steps 1–2 change the timing code, so the `LatencyTests` suite must still pass after them.
 
 ## Part 1: no tradeoff, for everyone
 
 ### 1. Event-driven control loop instead of 50 Hz polling
+
+**Status:** done. Since forced sends skip the interval (2026-11-05), only routine re-sends can be held back, so `CommandThrottle.nextDue` tracks those rather than "a forced send pending". `BridgeController.scheduleFlush()` runs after every `perform`.
 
 **Core:**
 - Give `CommandThrottle` a `nextDue: TimeInterval?`: `lastSendTime + minimumInterval` while a forced send is pending, otherwise nil.
@@ -24,6 +26,8 @@ The background is in [battery-review.md](battery-review.md). None of this is sta
 
 ### 2. One-shot trainer timeout instead of a 10 Hz loop
 
+**Status:** done.
+
 `FTMSTrainerLink`:
 - When a request is written, start a timer for `queue.timeout`.
 - When its reply arrives, cancel the timer.
@@ -31,6 +35,8 @@ The background is in [battery-review.md](battery-review.md). None of this is sta
 - Delete `startTimeoutLoop`.
 
 ### 3. Stop advertising while Zwift is connected
+
+**Status:** done, with a change: advertising stops after Zwift has been subscribed for 60 s with no subscribe or unsubscribe, not straight away, so pairing Power, Controllable and Cadence one after another still finds the app. `state` stays `.advertising` (meaning "ready"). Still to check with Zwift: a reconnect after a Wi-Fi blip or a Zwift restart.
 
 `VirtualTrainerPeripheral`:
 - When `subscriberCount` goes from 0 to more than 0, call `stopAdvertising()`.
@@ -42,12 +48,16 @@ Check with Zwift: a reconnect after a Wi-Fi blip or a Zwift restart must still f
 
 ### 4. Only update UI state that changed
 
+**Status:** done.
+
 `BridgeController`:
 - `refreshShiftState` compares each value before assigning it: `if gearNumber != new { gearNumber = new }`, and the same for the rest.
 - Update `logCount` at most once a second, from the 1 Hz tick, not from `record()`.
 - Apply the same check to `zwiftMode` and `fallback` in `handleZwiftWrite`.
 
 ### 5. Dark ride screen
+
+**Status:** done (2026-11-05).
 
 `RideView`:
 - Force a dark colour scheme on the ride screen only, with a black background behind the list.
@@ -57,6 +67,8 @@ Check with Zwift: a reconnect after a Wi-Fi blip or a Zwift restart must still f
 ## Part 2: one setting
 
 ### 6. "Dim screen while riding" (off by default)
+
+**Status:** done: `ScreenDimmer`, Settings → Display. It saves the brightness at the moment it dims (not at ride start), so a change made in Control Center mid-ride is kept. It also doesn't dim while Settings is open over the ride.
 
 **Setting:** in Settings, under a new "Display" section, persisted like the other settings.
 
@@ -98,9 +110,9 @@ Brightness is a system-wide value, so the app must never leave it dimmed.
 ## Related open items from the performance review
 
 Cheap, and they help both latency and battery:
-- Build the log export off the main thread.
-- Use a ring buffer for the packet log, with formatting deferred until export.
-- Tune speed smoothing once the Flux S's speed noise is measured.
+- Build the log export off the main thread. **Done.**
+- Use a ring buffer for the packet log, with formatting deferred until export. **Done:** trainer data entries keep the decoded values and are formatted on export.
+- Tune speed smoothing once the Flux S's speed noise is measured. Waiting on a debug-mode ride log.
 
 ## Measuring
 
