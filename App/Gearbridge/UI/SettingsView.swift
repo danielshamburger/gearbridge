@@ -207,6 +207,9 @@ private struct ZwiftSettings: View {
                       : "") + "In Zwift on the Mac, pair Controllable (and Cadence) to \(BridgeController.advertisedName), plus Power unless Zwift takes power directly from the trainer over ANT+. Events that require a power meter need the ANT+ setup: turn off \"Send power to Zwift\", then re-pair.")
             }
         }
+        // Show up in Zwift while this page is open, so you can pair without a ride.
+        .onAppear { bridge.beginPairing() }
+        .onDisappear { bridge.endPairing() }
         .navigationTitle("Zwift")
     }
 }

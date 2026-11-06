@@ -42,8 +42,8 @@ final class DirectConnectServer: ZwiftLink {
 
     func start() {
         wantsRunning = true
+        guard pathMonitor == nil else { return } // already running
         state = .starting
-        guard pathMonitor == nil else { return }
         let monitor = NWPathMonitor(requiredInterfaceType: .wifi)
         monitor.pathUpdateHandler = { [weak self] path in
             let satisfied = path.status == .satisfied

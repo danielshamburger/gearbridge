@@ -69,6 +69,9 @@ final class BridgeController {
 
     /// A ride is on: trainer connected, Zwift advertised to, packets logged.
     private(set) var isRiding = false
+    /// The Zwift settings page is open with no ride: the app shows up in
+    /// Zwift so you can pair, without the trainer or a packet log.
+    private(set) var isPairing = false
     private(set) var trainerState: TrainerLinkState = .idle
     private(set) var zwiftState: ZwiftLinkState = .starting
     private(set) var zwiftSubscribers = 0
@@ -119,7 +122,7 @@ final class BridgeController {
             guard zwiftConnection != oldValue else { return }
             UserDefaults.standard.set(zwiftConnection.rawValue, forKey: Keys.zwiftConnection)
             record(.event, "settings", [], "zwiftConnection=\(zwiftConnection.rawValue)")
-            guard isRiding else { return }
+            guard isRiding || isPairing else { return }
             let old: any ZwiftLink = oldValue == .wifi ? wifi : peripheral
             old.stop()
             if zwiftSubscribers > 0 {
@@ -363,10 +366,28 @@ final class BridgeController {
     // MARK: Ride
 
     /// Starts a fresh log, advertises to Zwift and connects the trainer.
+    /// Starts showing up in Zwift for pairing, with no ride. Foreground only,
+    /// like a ride's advertising. A ride takes over from here.
+    func beginPairing() {
+        guard !isRiding, !isPairing, !teardownPending else { return }
+        isPairing = true
+        zwift.start()
+        zwiftState = zwift.state
+    }
+
+    func endPairing() {
+        guard isPairing else { return }
+        isPairing = false
+        guard !isRiding else { return } // the ride keeps the link
+        zwift.stop()
+        zwiftState = zwift.state
+    }
+
     func startRide() {
         guard !isRiding else { return }
         finishEndingRide() // a ride ended a moment ago: finish its teardown first
         isRiding = true
+        isPairing = false // the ride owns the link now
         mockCadence = 0 // every ride starts stopped; the rider pedals up from 0
         powerGauge.reset()
         speedGauge.reset()

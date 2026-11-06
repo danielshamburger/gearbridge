@@ -30,6 +30,7 @@ Tacx Flux S  ──BLE (FTMS)──▶  Gearbridge (iPhone)  ──BLE (FTMS)─
    The first ride connects to the first smart trainer it finds and remembers it. With more than one trainer around, pick yours under **Settings → Trainer → Trainer**.
 3. In Zwift, pair **Controllable** and **Cadence** to Gearbridge. Pair **Power** to Gearbridge too, unless you use ANT+ (below).
    To connect over Wi-Fi, choose it under **Settings → Zwift → Connect over**. Gearbridge then shows up in Zwift's pairing lists with a Wi-Fi icon. The phone and the Mac must be on the same network.
+   You can also pair without starting a ride: Gearbridge shows up in Zwift while **Settings → Zwift** is open.
 4. Keep the app open while you pair. iOS only advertises to Zwift reliably while the app is on screen.
    Once paired, locking the phone or switching apps keeps the trainer and Zwift connected.
    To shift from there, use the − / + buttons on the lock screen, or long-press the Dynamic Island. Volume-button shifting needs the app on screen.
