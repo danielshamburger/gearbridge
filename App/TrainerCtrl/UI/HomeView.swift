@@ -60,14 +60,18 @@ struct HomeView: View {
 
     /// The Mackinac Bridge, faint, filling the space between the setup card and
     /// the buttons (so it never sits behind either, whatever the phone size).
-    /// Wider than the screen so the towers sit near the edges and the
-    /// approaches run off both sides.
+    /// Wider than the screen so the approaches run off both sides, and seen at
+    /// an angle for some depth.
     private var bridgeBackdrop: some View {
         GeometryReader { geo in
-            let height = min(geo.size.height - 8, 150)
-            if height > 60 {
+            // Turned 40° so it recedes to the right: the near tower stands
+            // taller, the far one smaller. Drawn ~12% shorter than the space
+            // so the near tower, enlarged by the perspective, stays inside it.
+            let height = min(geo.size.height - 8, 150) * 0.88
+            if height > 55 {
                 SuspensionBridgeArt()
                     .frame(width: (geo.size.width + 48) * 1.65, height: height)
+                    .rotation3DEffect(.degrees(40), axis: (x: 0, y: 1, z: 0), perspective: 0.7)
                     .position(x: geo.size.width / 2, y: geo.size.height - height / 2)
             }
         }
