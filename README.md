@@ -47,8 +47,6 @@ Tacx Flux S  ──BLE (FTMS)──▶  TrainerCtrl (iPhone)  ──BLE (FTMS)�
 
 ## Dependencies
 
-There are no third-party packages. Everything is built on Apple frameworks and one open Bluetooth standard:
-
 | Dependency | Used for |
 |---|---|
 | [Bluetooth Fitness Machine Service (FTMS)](https://www.bluetooth.com/specifications/specs/fitness-machine-service-1-0/) | The protocol on both sides: reading the trainer and setting its resistance, and acting as a trainer for Zwift |
