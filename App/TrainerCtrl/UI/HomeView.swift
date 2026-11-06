@@ -11,9 +11,7 @@ struct HomeView: View {
             VStack(spacing: 24) {
                 Spacer()
                 VStack(spacing: 8) {
-                    Image(systemName: "bicycle")
-                        .font(.system(size: 56, weight: .semibold))
-                        .foregroundStyle(.tint)
+                    bridgeMark
                     Text("TrainerCtrl").font(.largeTitle.bold())
                 }
                 summary
@@ -43,6 +41,20 @@ struct HomeView: View {
             .padding(.bottom, 24)
             .sheet(isPresented: $showingSettings) { SettingsView(bridge: bridge) }
         }
+    }
+
+    /// Trainer → phone → Zwift: what the app does, at a glance.
+    private var bridgeMark: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "figure.indoor.cycle").font(.system(size: 44, weight: .semibold))
+            Image(systemName: "wave.3.right").font(.system(size: 30, weight: .semibold)).foregroundStyle(.secondary)
+            Image(systemName: "iphone").font(.system(size: 44))
+            Image(systemName: "wave.3.right").font(.system(size: 30, weight: .semibold)).foregroundStyle(.secondary)
+            Image(systemName: "laptopcomputer").font(.system(size: 40))
+        }
+        .foregroundStyle(.tint)
+        .padding(.bottom, 4)
+        .accessibilityHidden(true)
     }
 
     /// The current setup; tap to change it in Settings.
