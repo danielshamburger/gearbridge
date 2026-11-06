@@ -122,7 +122,6 @@ struct HomeView: View {
         if bridge.virtualShifting {
             rows.append(.init(page: .shifting, value: bridge.activeModel.rawValue, hint: nil))
         }
-        rows.append(.init(page: .trainer, title: "Real gear", symbol: "link", color: .gray, value: "\(bridge.rider.realChainring)×\(bridge.rider.realCog)", hint: nil))
         return rows
     }
 
@@ -160,10 +159,6 @@ private struct SummaryRowStyle: ButtonStyle {
 private struct SummaryRow: View {
     struct Item {
         let page: SettingsPage
-        /// Defaults to the page's own title and icon.
-        var title: String? = nil
-        var symbol: String? = nil
-        var color: Color? = nil
         let value: String
         let hint: String?
     }
@@ -172,9 +167,9 @@ private struct SummaryRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            SettingsIcon(symbol: item.symbol ?? item.page.symbol, color: item.color ?? item.page.color)
+            SettingsIcon(page: item.page)
             VStack(alignment: .leading, spacing: 1) {
-                Text(item.title ?? item.page.title)
+                Text(item.page.title)
                 if let hint = item.hint {
                     Text(hint).font(.caption).foregroundStyle(.secondary)
                 }
