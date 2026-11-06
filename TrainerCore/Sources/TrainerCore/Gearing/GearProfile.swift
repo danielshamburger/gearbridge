@@ -178,6 +178,12 @@ public struct GearProfile: Equatable, Sendable, Identifiable {
             chainring: 46,
             cassette: [10, 11, 12, 13, 15, 17, 19, 21, 24, 28, 32, 36]
         ),
+        try! .oneBy(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000007")!,
+            name: "1× 50T, 10–42",
+            chainring: 50,
+            cassette: [10, 12, 14, 16, 18, 21, 24, 28, 32, 36, 42]
+        ),
     ]
 }
 
