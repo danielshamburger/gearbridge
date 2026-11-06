@@ -141,6 +141,10 @@ final class BridgeController {
 
     private(set) var savedCalibration: SavedCalibration?
 
+    /// Gauge ranges: grow to the highest power and speed held this ride.
+    private(set) var powerGauge = PeakGaugeScale.power
+    private(set) var speedGauge = PeakGaugeScale.speed
+
     /// The calibration routine, while it runs and until its result is saved or discarded.
     private(set) var calibrationRun: CalibrationRun?
     /// The bridge clock at the last calibration update, for progress bars.
@@ -246,6 +250,8 @@ final class BridgeController {
         guard !isRiding else { return }
         isRiding = true
         mockCadence = 0 // every ride starts stopped; the rider pedals up from 0
+        powerGauge.reset()
+        speedGauge.reset()
         clearLog()
         record(.event, "ride", [], "start")
         // Zwift's side of the bridge (control, last command) carries over from
@@ -505,6 +511,8 @@ final class BridgeController {
             perform(core.trainerDidConnect())
         case .data(let data, let raw):
             latestData = data
+            if let watts = data.instantaneousPower { powerGauge.observe(Double(watts)) }
+            if let kmh = data.instantaneousSpeed { speedGauge.observe(kmh) }
             // The bulk of the log (several a second); only kept in debug mode.
             if debugMode { record(.fromTrainer, FTMSUUID.indoorBikeData, raw, data.logSummary) }
             perform(core.handleTrainerData(data, at: now))

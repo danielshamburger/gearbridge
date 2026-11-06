@@ -155,11 +155,11 @@ struct RideView: View {
             HStack {
                 let data = bridge.latestData
                 Readout(title: "Power", value: data?.instantaneousPower.map { "\($0)" }, unit: "W",
-                        gauge: data?.instantaneousPower.map(Double.init), range: 0...600, tint: .orange)
+                        gauge: data?.instantaneousPower.map(Double.init), range: 0...bridge.powerGauge.upperBound, tint: .orange)
                 Readout(title: "Cadence", value: data?.instantaneousCadence.map { String(format: "%.0f", $0) }, unit: "rpm",
                         gauge: data?.instantaneousCadence, range: 0...120, tint: .teal)
                 Readout(title: "Speed", value: data?.instantaneousSpeed.map { String(format: "%.1f", $0) }, unit: "km/h",
-                        gauge: data?.instantaneousSpeed, range: 0...60, tint: .indigo)
+                        gauge: data?.instantaneousSpeed, range: 0...bridge.speedGauge.upperBound, tint: .indigo)
             }
             .padding(.vertical, 4)
             if bridge.debugMode {
