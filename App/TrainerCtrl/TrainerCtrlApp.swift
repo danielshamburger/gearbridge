@@ -17,8 +17,7 @@ struct TrainerCtrlApp: App {
                     HomeView(bridge: bridge)
                 }
             }
-            // Quick: the screen change is the only feedback for Start and End ride.
-            .animation(.easeOut(duration: 0.2), value: bridge.isRiding)
+            .animation(.default, value: bridge.isRiding)
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
