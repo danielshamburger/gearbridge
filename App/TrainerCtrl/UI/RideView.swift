@@ -171,7 +171,7 @@ struct RideView: View {
             if bridge.source == .mock {
                 VStack(alignment: .leading) {
                     Text("Mock cadence: \(Int(bridge.mockCadence)) rpm")
-                    Slider(value: $bridge.mockCadence, in: 0...130, step: 1)
+                    CadenceSlider(cadence: $bridge.mockCadence)
                 }
             }
         }

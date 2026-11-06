@@ -144,7 +144,7 @@ private struct RunningView: View {
                 Section {
                     Toggle("Mock rider follows targets", isOn: $bridge.mockFollowsCalibration)
                     if !bridge.mockFollowsCalibration {
-                        Slider(value: $bridge.mockCadence, in: 0...130, step: 1)
+                        CadenceSlider(cadence: $bridge.mockCadence)
                     }
                 }
             }
