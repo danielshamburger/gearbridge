@@ -32,6 +32,8 @@ final class VirtualTrainerPeripheral: NSObject {
 
     private var manager: CBPeripheralManager?
     private var serviceAdded = false
+    /// Advertise once the service is up (set by start/stop).
+    private var wantsAdvertising = false
     private var pending: [(Data, CBMutableCharacteristic)] = []
     private let maxPending = 50
 
@@ -55,24 +57,34 @@ final class VirtualTrainerPeripheral: NSObject {
         super.init()
     }
 
-    /// Publishes the service (first time only) and starts advertising.
+    /// Publishes the FTMS service without advertising. Call once at launch.
     ///
-    /// The service stays published until the app quits, even between rides:
-    /// removing and re-adding it changes its GATT handles, and Zwift (and the
-    /// Mac's Bluetooth cache) keep using the old ones, so Zwift ends up linked
-    /// but never subscribes or writes.
+    /// The service stays published until the app quits. A Mac on the same
+    /// Apple ID caches the iPhone's GATT layout, so the service must land in
+    /// the same place every time: added at launch, before anything else the
+    /// app does, and never removed. Added later (or re-added), its handles can
+    /// move and Zwift's reads, writes and subscriptions go to the wrong place:
+    /// Zwift shows "connected" but nothing arrives.
+    func publish() {
+        guard manager == nil else { return }
+        manager = CBPeripheralManager(delegate: self, queue: nil)
+    }
+
+    /// Starts advertising (publishing first if needed).
     func start() {
+        wantsAdvertising = true
         state = .starting
         if let manager {
-            if manager.state == .poweredOn { addService(manager) } // re-advertises if already added
+            if manager.state == .poweredOn { addService(manager) } // advertises if already added
         } else {
-            manager = CBPeripheralManager(delegate: self, queue: nil)
+            publish()
         }
     }
 
     /// Stops advertising. The service and any Zwift subscriptions stay, so
     /// the next ride carries on without re-pairing.
     func stop() {
+        wantsAdvertising = false
         manager?.stopAdvertising()
         pending = []
         state = .stopped
@@ -116,7 +128,7 @@ final class VirtualTrainerPeripheral: NSObject {
 
     private func addService(_ manager: CBPeripheralManager) {
         guard !serviceAdded else {
-            startAdvertising(manager)
+            if wantsAdvertising { startAdvertising(manager) }
             return
         }
         let service = CBMutableService(type: CBUUID(string: FTMSUUID.service), primary: true)
@@ -177,7 +189,7 @@ extension VirtualTrainerPeripheral: @preconcurrency CBPeripheralManagerDelegate 
         }
         onLog?("service added")
         serviceAdded = true
-        startAdvertising(peripheral)
+        if wantsAdvertising { startAdvertising(peripheral) }
     }
 
     func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {

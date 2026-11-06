@@ -223,6 +223,7 @@ final class BridgeController {
                 self.core.zwiftConnectionChanged(connected: connected, at: self.now)
             }
         }
+        peripheral.publish() // at launch, so its GATT position is stable (see publish())
         refreshShiftState()
     }
 
