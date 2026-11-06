@@ -14,7 +14,7 @@ struct HomeView: View {
                 Spacer()
                 VStack(spacing: 12) {
                     appIcon
-                    Text("TrainerCtrl").font(.largeTitle.bold())
+                    Text("Gearbridge").font(.largeTitle.bold())
                 }
                 summary
                 if let note = bridge.autoEndNote {

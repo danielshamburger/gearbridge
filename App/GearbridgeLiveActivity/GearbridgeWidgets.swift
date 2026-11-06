@@ -2,7 +2,7 @@ import SwiftUI
 import WidgetKit
 
 @main
-struct TrainerCtrlWidgets: WidgetBundle {
+struct GearbridgeWidgets: WidgetBundle {
     var body: some Widget {
         RideLiveActivity()
     }

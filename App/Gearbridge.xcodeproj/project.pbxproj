@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		A10000000000000000000010 /* TrainerCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000090 /* TrainerCore */; };
-		A10000000000000000000111 /* TrainerCtrlLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A10000000000000000000120 /* TrainerCtrlLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A10000000000000000000111 /* GearbridgeLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A10000000000000000000120 /* GearbridgeLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -17,7 +17,7 @@
 			containerPortal = A10000000000000000000070 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = A10000000000000000000160;
-			remoteInfo = TrainerCtrlLiveActivity;
+			remoteInfo = GearbridgeLiveActivity;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -28,7 +28,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				A10000000000000000000111 /* TrainerCtrlLiveActivity.appex in Embed Foundation Extensions */,
+				A10000000000000000000111 /* GearbridgeLiveActivity.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -36,14 +36,14 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		A10000000000000000000020 /* TrainerCtrl.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TrainerCtrl.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A10000000000000000000120 /* TrainerCtrlLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TrainerCtrlLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000020 /* Gearbridge.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Gearbridge.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000120 /* GearbridgeLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = GearbridgeLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		A10000000000000000000030 /* TrainerCtrl */ = {
+		A10000000000000000000030 /* Gearbridge */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = TrainerCtrl;
+			path = Gearbridge;
 			sourceTree = "<group>";
 		};
 		A10000000000000000000130 /* Shared */ = {
@@ -51,9 +51,9 @@
 			path = Shared;
 			sourceTree = "<group>";
 		};
-		A10000000000000000000131 /* TrainerCtrlLiveActivity */ = {
+		A10000000000000000000131 /* GearbridgeLiveActivity */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = TrainerCtrlLiveActivity;
+			path = GearbridgeLiveActivity;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -80,9 +80,9 @@
 		A10000000000000000000050 = {
 			isa = PBXGroup;
 			children = (
-				A10000000000000000000030 /* TrainerCtrl */,
+				A10000000000000000000030 /* Gearbridge */,
 				A10000000000000000000130 /* Shared */,
-				A10000000000000000000131 /* TrainerCtrlLiveActivity */,
+				A10000000000000000000131 /* GearbridgeLiveActivity */,
 				A10000000000000000000051 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -90,8 +90,8 @@
 		A10000000000000000000051 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A10000000000000000000020 /* TrainerCtrl.app */,
-				A10000000000000000000120 /* TrainerCtrlLiveActivity.appex */,
+				A10000000000000000000020 /* Gearbridge.app */,
+				A10000000000000000000120 /* GearbridgeLiveActivity.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -99,9 +99,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A10000000000000000000060 /* TrainerCtrl */ = {
+		A10000000000000000000060 /* Gearbridge */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A10000000000000000000081 /* Build configuration list for PBXNativeTarget "TrainerCtrl" */;
+			buildConfigurationList = A10000000000000000000081 /* Build configuration list for PBXNativeTarget "Gearbridge" */;
 			buildPhases = (
 				A10000000000000000000041 /* Sources */,
 				A10000000000000000000040 /* Frameworks */,
@@ -114,20 +114,20 @@
 				A10000000000000000000162 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				A10000000000000000000030 /* TrainerCtrl */,
+				A10000000000000000000030 /* Gearbridge */,
 				A10000000000000000000130 /* Shared */,
 			);
-			name = TrainerCtrl;
+			name = Gearbridge;
 			packageProductDependencies = (
 				A10000000000000000000090 /* TrainerCore */,
 			);
-			productName = TrainerCtrl;
-			productReference = A10000000000000000000020 /* TrainerCtrl.app */;
+			productName = Gearbridge;
+			productReference = A10000000000000000000020 /* Gearbridge.app */;
 			productType = "com.apple.product-type.application";
 		};
-		A10000000000000000000160 /* TrainerCtrlLiveActivity */ = {
+		A10000000000000000000160 /* GearbridgeLiveActivity */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A10000000000000000000181 /* Build configuration list for PBXNativeTarget "TrainerCtrlLiveActivity" */;
+			buildConfigurationList = A10000000000000000000181 /* Build configuration list for PBXNativeTarget "GearbridgeLiveActivity" */;
 			buildPhases = (
 				A10000000000000000000141 /* Sources */,
 				A10000000000000000000142 /* Frameworks */,
@@ -139,11 +139,11 @@
 			);
 			fileSystemSynchronizedGroups = (
 				A10000000000000000000130 /* Shared */,
-				A10000000000000000000131 /* TrainerCtrlLiveActivity */,
+				A10000000000000000000131 /* GearbridgeLiveActivity */,
 			);
-			name = TrainerCtrlLiveActivity;
-			productName = TrainerCtrlLiveActivity;
-			productReference = A10000000000000000000120 /* TrainerCtrlLiveActivity.appex */;
+			name = GearbridgeLiveActivity;
+			productName = GearbridgeLiveActivity;
+			productReference = A10000000000000000000120 /* GearbridgeLiveActivity.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -164,7 +164,7 @@
 					};
 				};
 			};
-			buildConfigurationList = A10000000000000000000080 /* Build configuration list for PBXProject "TrainerCtrl" */;
+			buildConfigurationList = A10000000000000000000080 /* Build configuration list for PBXProject "Gearbridge" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -181,8 +181,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				A10000000000000000000060 /* TrainerCtrl */,
-				A10000000000000000000160 /* TrainerCtrlLiveActivity */,
+				A10000000000000000000060 /* Gearbridge */,
+				A10000000000000000000160 /* GearbridgeLiveActivity */,
 			);
 		};
 /* End PBXProject section */
@@ -224,7 +224,7 @@
 /* Begin PBXTargetDependency section */
 		A10000000000000000000162 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = A10000000000000000000160 /* TrainerCtrlLiveActivity */;
+			target = A10000000000000000000160 /* GearbridgeLiveActivity */;
 			targetProxy = A10000000000000000000161 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -278,9 +278,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = S6VDK579W8;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "TrainerCtrl-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = TrainerCtrl;
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "TrainerCtrl connects to your smart trainer and presents itself to Zwift as a trainer.";
+				INFOPLIST_FILE = "Gearbridge-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Gearbridge;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Gearbridge connects to your smart trainer and presents itself to Zwift as a trainer.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -289,7 +289,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.shamburgerd.TrainerCtrl;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.shamburgerd.Gearbridge;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
@@ -306,9 +306,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = S6VDK579W8;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "TrainerCtrl-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = TrainerCtrl;
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "TrainerCtrl connects to your smart trainer and presents itself to Zwift as a trainer.";
+				INFOPLIST_FILE = "Gearbridge-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Gearbridge;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Gearbridge connects to your smart trainer and presents itself to Zwift as a trainer.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -317,7 +317,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.shamburgerd.TrainerCtrl;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.shamburgerd.Gearbridge;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
@@ -333,15 +333,15 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = S6VDK579W8;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "TrainerCtrlLiveActivity-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = TrainerCtrl;
+				INFOPLIST_FILE = "GearbridgeLiveActivity-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Gearbridge;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.shamburgerd.TrainerCtrl.LiveActivity;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.shamburgerd.Gearbridge.LiveActivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -358,15 +358,15 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = S6VDK579W8;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "TrainerCtrlLiveActivity-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = TrainerCtrl;
+				INFOPLIST_FILE = "GearbridgeLiveActivity-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Gearbridge;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.shamburgerd.TrainerCtrl.LiveActivity;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.shamburgerd.Gearbridge.LiveActivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -378,7 +378,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A10000000000000000000080 /* Build configuration list for PBXProject "TrainerCtrl" */ = {
+		A10000000000000000000080 /* Build configuration list for PBXProject "Gearbridge" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A10000000000000000000071 /* Debug */,
@@ -387,7 +387,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A10000000000000000000081 /* Build configuration list for PBXNativeTarget "TrainerCtrl" */ = {
+		A10000000000000000000081 /* Build configuration list for PBXNativeTarget "Gearbridge" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A10000000000000000000073 /* Debug */,
@@ -396,7 +396,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A10000000000000000000181 /* Build configuration list for PBXNativeTarget "TrainerCtrlLiveActivity" */ = {
+		A10000000000000000000181 /* Build configuration list for PBXNativeTarget "GearbridgeLiveActivity" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A10000000000000000000173 /* Debug */,

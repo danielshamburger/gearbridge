@@ -64,7 +64,7 @@ extension TrainerScanner: @preconcurrency CBCentralManagerDelegate {
         switch central.state {
         case .poweredOn: problem = nil; scan(central)
         case .poweredOff: problem = "Bluetooth is off."
-        case .unauthorized: problem = "TrainerCtrl doesn't have Bluetooth permission. Allow it in the Settings app."
+        case .unauthorized: problem = "Gearbridge doesn't have Bluetooth permission. Allow it in the Settings app."
         case .unsupported: problem = "This device doesn't support Bluetooth LE."
         default: break
         }

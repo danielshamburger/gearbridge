@@ -32,7 +32,7 @@ final class VolumeButtonShifter: NSObject {
     private var wantsRunning = false
 
     /// Audio session calls can block, so they run here rather than on the main thread.
-    private nonisolated static let audioQueue = DispatchQueue(label: "TrainerCtrl.audioSession")
+    private nonisolated static let audioQueue = DispatchQueue(label: "Gearbridge.audioSession")
 
     private var slider: UISlider? {
         volumeView.subviews.compactMap { $0 as? UISlider }.first

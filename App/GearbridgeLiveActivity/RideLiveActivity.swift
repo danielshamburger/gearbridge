@@ -106,7 +106,7 @@ private struct EndedLabel: View {
     var body: some View {
         VStack(spacing: 2) {
             Text("Ride ended").font(.headline)
-            Text("Open TrainerCtrl to ride again").font(.caption).foregroundStyle(.secondary)
+            Text("Open Gearbridge to ride again").font(.caption).foregroundStyle(.secondary)
         }
         .lineLimit(1)
         .minimumScaleFactor(0.7)

@@ -1,13 +1,13 @@
-<p align="center"><img src="docs/app-icon.png" width="128" alt="TrainerCtrl app icon"></p>
+<p align="center"><img src="docs/app-icon.png" width="128" alt="Gearbridge app icon"></p>
 
-# TrainerCtrl
+# Gearbridge
 
 An iPhone app that adds virtual shifting to a [Tacx Flux S](https://www.garmin.com/en-US/p/690888/) smart trainer in [Zwift](https://www.zwift.com/).
 
-The phone sits between the trainer and Zwift. It connects to the trainer over Bluetooth and shows up in Zwift as a trainer named **TrainerCtrl**. When you shift, it changes the resistance it sends to the trainer, so the bike feels like it has a full set of gears. The chain stays in one cog the whole ride.
+The phone sits between the trainer and Zwift. It connects to the trainer over Bluetooth and shows up in Zwift as a trainer named **Gearbridge**. When you shift, it changes the resistance it sends to the trainer, so the bike feels like it has a full set of gears. The chain stays in one cog the whole ride.
 
 ```
-Tacx Flux S  ──BLE (FTMS)──▶  TrainerCtrl (iPhone)  ──BLE (FTMS)──▶  Zwift (Mac)
+Tacx Flux S  ──BLE (FTMS)──▶  Gearbridge (iPhone)  ──BLE (FTMS)──▶  Zwift (Mac)
      └───────────── ANT+ power (optional) ─────────────────────────────▲
 ```
 
@@ -25,9 +25,9 @@ Tacx Flux S  ──BLE (FTMS)──▶  TrainerCtrl (iPhone)  ──BLE (FTMS)�
 ## Riding
 
 1. Put the chain in the cog you set under **Settings → Trainer → Real gear** (42×18 by default).
-2. Open TrainerCtrl and tap **Start ride**. The app connects to the trainer and shows up in Zwift.
+2. Open Gearbridge and tap **Start ride**. The app connects to the trainer and shows up in Zwift.
    The first ride connects to the first smart trainer it finds and remembers it. With more than one trainer around, pick yours under **Settings → Trainer → Trainer**.
-3. In Zwift, pair **Controllable** and **Cadence** to TrainerCtrl. Pair **Power** to TrainerCtrl too, unless you use ANT+ (below).
+3. In Zwift, pair **Controllable** and **Cadence** to Gearbridge. Pair **Power** to Gearbridge too, unless you use ANT+ (below).
 4. Keep the app open while you pair. iOS only advertises to Zwift reliably while the app is on screen.
    Once paired, locking the phone or switching apps keeps the trainer and Zwift connected.
    To shift from there, use the − / + buttons on the lock screen, or long-press the Dynamic Island. Volume-button shifting needs the app on screen.
@@ -37,7 +37,7 @@ Tacx Flux S  ──BLE (FTMS)──▶  TrainerCtrl (iPhone)  ──BLE (FTMS)�
 **Events that require a power meter.** Zwift blocks power that comes through a bridge. In those events:
 1. Turn off **Send power to Zwift**.
 2. In Zwift, pair **Power** to the Flux S directly over ANT+, or over Bluetooth if the trainer accepts a second connection.
-3. Keep **Controllable** paired to TrainerCtrl.
+3. Keep **Controllable** paired to Gearbridge.
 
 ## Requirements
 
@@ -57,7 +57,7 @@ Tacx Flux S  ──BLE (FTMS)──▶  TrainerCtrl (iPhone)  ──BLE (FTMS)�
 
 ## Building
 
-Open `App/TrainerCtrl.xcodeproj`, choose your iPhone, and run. The shifting, protocol and calibration logic is in the `TrainerCore` Swift package, which has its own tests:
+Open `App/Gearbridge.xcodeproj`, choose your iPhone, and run. The shifting, protocol and calibration logic is in the `TrainerCore` Swift package, which has its own tests:
 
 ```sh
 cd TrainerCore && swift test
@@ -65,10 +65,10 @@ cd TrainerCore && swift test
 
 ## Troubleshooting
 
-**Zwift shows TrainerCtrl as connected, but power and cadence stay at 0, then blank out, while the app still says "Waiting for Zwift to pair".** The Mac is holding stale Bluetooth information about the iPhone. To fix it:
+**Zwift shows Gearbridge as connected, but power and cadence stay at 0, then blank out, while the app still says "Waiting for Zwift to pair".** The Mac is holding stale Bluetooth information about the iPhone. To fix it:
 1. Quit Zwift.
 2. Turn the Mac's Bluetooth off and on again.
-3. Reopen Zwift and pair TrainerCtrl again.
+3. Reopen Zwift and pair Gearbridge again.
 
 ## Debugging
 
@@ -81,10 +81,10 @@ cd TrainerCore && swift test
 
 | Path | What's there |
 |---|---|
-| `App/TrainerCtrl/BLE` | The trainer connection, the simulated trainer, and the virtual trainer that Zwift sees |
-| `App/TrainerCtrl/Bridge` | `BridgeController`: connects the pieces, stores settings, runs the ride |
-| `App/TrainerCtrl/UI` | Screens: home, ride, settings, gears, calibration |
-| `App/TrainerCtrlLiveActivity` | The lock screen and Dynamic Island widget extension |
+| `App/Gearbridge/BLE` | The trainer connection, the simulated trainer, and the virtual trainer that Zwift sees |
+| `App/Gearbridge/Bridge` | `BridgeController`: connects the pieces, stores settings, runs the ride |
+| `App/Gearbridge/UI` | Screens: home, ride, settings, gears, calibration |
+| `App/GearbridgeLiveActivity` | The lock screen and Dynamic Island widget extension |
 | `App/Shared` | Code in both the app and the extension: the Live Activity's data and the shift action |
 | `TrainerCore/Sources/TrainerCore` | FTMS encoding and decoding, bridge logic, gearing, shifting, calibration |
 | `Virtual Shifting Bridge for Tacx Flux S — Plan.md` | Design plan and background |

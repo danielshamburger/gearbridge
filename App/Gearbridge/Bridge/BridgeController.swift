@@ -41,7 +41,7 @@ enum TrainerSource: String, CaseIterable, Identifiable {
 @MainActor
 @Observable
 final class BridgeController {
-    static let advertisedName = "TrainerCtrl"
+    static let advertisedName = "Gearbridge"
 
     /// Which trainer a ride connects to. Saved; the real trainer by default.
     var source: TrainerSource {
@@ -107,7 +107,7 @@ final class BridgeController {
     }
 
     /// Off when Zwift takes power straight from the trainer (e.g. over ANT+),
-    /// so TrainerCtrl doesn't compete as a power source.
+    /// so Gearbridge doesn't compete as a power source.
     var reportsPower: Bool {
         didSet {
             guard reportsPower != oldValue else { return }
@@ -612,7 +612,7 @@ final class BridgeController {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmmss"
         let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("trainerctrl-\(formatter.string(from: logStart)).csv")
+            .appendingPathComponent("gearbridge-\(formatter.string(from: logStart)).csv")
         let snapshot = log
         try await Task.detached(priority: .userInitiated) {
             try snapshot.csv().write(to: url, atomically: true, encoding: .utf8)

@@ -1,12 +1,12 @@
 # Plan: connect to Zwift over Wi-Fi
 
-TrainerCtrl talks to Zwift over Bluetooth today. This plan adds a second way: Wi-Fi, using Wahoo's **Direct Connect** protocol (also called DIRCON), which Zwift supports for trainers on the local network. The trainer side doesn't change: the Flux S only speaks Bluetooth (and ANT+), so the phone still reaches it over Bluetooth.
+Gearbridge talks to Zwift over Bluetooth today. This plan adds a second way: Wi-Fi, using Wahoo's **Direct Connect** protocol (also called DIRCON), which Zwift supports for trainers on the local network. The trainer side doesn't change: the Flux S only speaks Bluetooth (and ANT+), so the phone still reaches it over Bluetooth.
 
 Status: planned (2026-11-06). Nothing built yet.
 
 ## Decisions already made
 
-- **Settings → Zwift → Connect over: Bluetooth / Wi-Fi.** One at a time, never both: two "TrainerCtrl" devices in Zwift's pairing screen would invite mixed pairing, and both cost battery.
+- **Settings → Zwift → Connect over: Bluetooth / Wi-Fi.** One at a time, never both: two "Gearbridge" devices in Zwift's pairing screen would invite mixed pairing, and both cost battery.
 - **Bluetooth stays the default** until Wi-Fi has been ridden on the real setup. If it proves solid, Wi-Fi may become the default later.
 - **No third-party packages.** Use Apple's Network framework (`NWListener`, `NWConnection`) for TCP and Bonjour.
 - **`TrainerCore` and the shifting logic don't change.** Direct Connect carries the same FTMS bytes the app already sends and receives over Bluetooth.
@@ -32,7 +32,7 @@ There's no official public spec. The details below come from open-source impleme
 | Field | Value |
 |---|---|
 | Service type | `_wahoo-fitness-tnp._tcp` (domain `local.`) |
-| Service name | `TrainerCtrl` (`BridgeController.advertisedName`) |
+| Service name | `Gearbridge` (`BridgeController.advertisedName`) |
 | Port | 36866, the port real Wahoo devices use. If it's taken, any free port, because Bonjour advertises the actual port. |
 | TXT `ble-service-uuids` | `0x1826` (FTMS). **(check)** Some implementations use the full 128-bit UUID string instead. The DirCon library uses `0x1826` and is tested with Zwift. |
 | TXT `mac-address` | A stable, made-up MAC such as `02:xx:xx:xx:xx:xx` (`02` marks it as locally administered). Generate it once and save it. |
@@ -132,7 +132,7 @@ These are the same as `VirtualTrainerPeripheral` exposes over Bluetooth:
 
 ### 1. Put the Zwift side behind one interface (refactor, no behaviour change)
 
-- Add a `ZwiftLink` protocol in `App/TrainerCtrl/BLE/`, based on what `BridgeController` uses from `VirtualTrainerPeripheral` today:
+- Add a `ZwiftLink` protocol in `App/Gearbridge/BLE/`, based on what `BridgeController` uses from `VirtualTrainerPeripheral` today:
   - Properties: `state`, `subscriberCount`, `feature`, `powerRange`, `resistanceRange`.
   - Callbacks: `onControlPointWrite`, `onChange`, `onLog`.
   - Methods: `start()`, `stop()`, `notify(IndoorBikeData)`, `notify(FitnessMachineStatus)`, `indicate(ControlPointResponse)`.
@@ -180,7 +180,7 @@ New folder: `TrainerCore/Sources/TrainerCore/DirectConnect/`.
 
 ### 3. The Wi-Fi link in the app
 
-New file: `App/TrainerCtrl/BLE/DirectConnectServer.swift`. A `@MainActor` class conforming to `ZwiftLink`.
+New file: `App/Gearbridge/BLE/DirectConnectServer.swift`. A `@MainActor` class conforming to `ZwiftLink`.
 
 - **`start()`:**
   - Create an `NWListener` for TCP on port 36866, falling back to any free port, with `noDelay` on.
@@ -216,22 +216,22 @@ New file: `App/TrainerCtrl/BLE/DirectConnectServer.swift`. A `@MainActor` class 
 
 ### 5. Info.plist
 
-- **`NSLocalNetworkUsageDescription`:** add it as `INFOPLIST_KEY_NSLocalNetworkUsageDescription` in both the Debug and Release build settings of the app target in `project.pbxproj`, next to the Bluetooth one (~lines 283 and 311). Text, for example: "TrainerCtrl shows up in Zwift on your local network when you connect over Wi-Fi."
-- **`NSBonjourServices`:** an array with `_wahoo-fitness-tnp._tcp`. Add it to `App/TrainerCtrl-Info.plist`, because arrays can't go in build settings.
+- **`NSLocalNetworkUsageDescription`:** add it as `INFOPLIST_KEY_NSLocalNetworkUsageDescription` in both the Debug and Release build settings of the app target in `project.pbxproj`, next to the Bluetooth one (~lines 283 and 311). Text, for example: "Gearbridge shows up in Zwift on your local network when you connect over Wi-Fi."
+- **`NSBonjourServices`:** an array with `_wahoo-fitness-tnp._tcp`. Add it to `App/Gearbridge-Info.plist`, because arrays can't go in build settings.
 - No multicast entitlement is needed: advertising a service through `NWListener` doesn't require it.
 - iOS asks for local network permission the first time the listener starts. If the user denies it, the listener fails. Show that as `.unavailable("Local network access is off. Allow it in the Settings app.")`.
 
 ### 6. README
 
 - **Features:** add "Connects to Zwift over Bluetooth or Wi-Fi."
-- **Riding, step 3:** with Wi-Fi, TrainerCtrl appears in Zwift's pairing lists with a Wi-Fi icon; the phone and the Mac must be on the same network.
+- **Riding, step 3:** with Wi-Fi, Gearbridge appears in Zwift's pairing lists with a Wi-Fi icon; the phone and the Mac must be on the same network.
 - **Troubleshooting:** Wi-Fi not found. Check the same network, guest networks or routers that block devices from seeing each other, the local network permission, and VPNs.
 - **Dependencies table:** add Network (Wi-Fi connection to Zwift) and Wahoo Direct Connect (the Wi-Fi protocol).
 
 ### 7. Check on the device, with Zwift on the Mac
 
-1. On the Mac, run `dns-sd -B _wahoo-fitness-tnp._tcp` during a ride: TrainerCtrl should be listed. Then run `dns-sd -L TrainerCtrl _wahoo-fitness-tnp._tcp` to see the port and TXT record.
-2. Zwift's pairing screen shows TrainerCtrl with a Wi-Fi icon under Power, Controllable and Cadence.
+1. On the Mac, run `dns-sd -B _wahoo-fitness-tnp._tcp` during a ride: Gearbridge should be listed. Then run `dns-sd -L Gearbridge _wahoo-fitness-tnp._tcp` to see the port and TXT record.
+2. Zwift's pairing screen shows Gearbridge with a Wi-Fi icon under Power, Controllable and Cadence.
 3. Pairing completes: the log shows Request Control from Zwift and the success response going back.
 4. Shifting and Zwift's grades reach the trainer. Compare shift feel with Bluetooth.
 5. Lock the phone mid-ride: data keeps reaching Zwift for several minutes, and Zwift's grades still reach the trainer.
