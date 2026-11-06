@@ -22,11 +22,10 @@ Status: planned (2026-11-06). Nothing built yet.
 - **Latency:** no added latency for shifts or Zwift grades. The `LatencyTests` suite must still pass. Over TCP, turn Nagle off (`noDelay`) so small packets go out at once.
 - **Commits:** as the user only (see the repo's usual commit command), no Co-Authored-By trailer. Push after each commit.
 - **Screen transitions** keep the default iOS timing.
-- **Licensing:** QZ (qdomyos-zwift) is GPL-3. Use it and the DirCon library only as references for how the protocol behaves. Don't copy code. Everything needed is written out below.
 
 ## The protocol
 
-There's no official public spec. The details below come from two open-source implementations that work with Zwift, listed under Sources. Items marked **(check)** differ between them or haven't been confirmed against Zwift.
+There's no official public spec. The details below come from open-source implementations that work with Zwift, listed under Sources. Items marked **(check)** differ between them or haven't been confirmed against Zwift.
 
 ### Discovery (Bonjour)
 
@@ -35,7 +34,7 @@ There's no official public spec. The details below come from two open-source imp
 | Service type | `_wahoo-fitness-tnp._tcp` (domain `local.`) |
 | Service name | `TrainerCtrl` (`BridgeController.advertisedName`) |
 | Port | 36866, the port real Wahoo devices use. If it's taken, any free port, because Bonjour advertises the actual port. |
-| TXT `ble-service-uuids` | `0x1826` (FTMS). **(check)** QZ uses the full 128-bit UUID string by default and `0x1826` in its compatibility mode. The DirCon library uses `0x1826` and is tested with Zwift. |
+| TXT `ble-service-uuids` | `0x1826` (FTMS). **(check)** Some implementations use the full 128-bit UUID string instead. The DirCon library uses `0x1826` and is tested with Zwift. |
 | TXT `mac-address` | A stable, made-up MAC such as `02:xx:xx:xx:xx:xx` (`02` marks it as locally administered). Generate it once and save it. |
 | TXT `serial-number` | A stable made-up serial. Generate it once and save it. |
 
@@ -99,7 +98,7 @@ A reply uses the **same message ID and sequence number** as its request. An erro
 | `0x01` discover services | empty | 16 bytes per service. Only FTMS (`1826`). |
 | `0x02` discover characteristics | service UUID | Service UUID, then 17 bytes per characteristic: UUID plus a properties byte. |
 | `0x03` read | characteristic UUID | UUID, then the value |
-| `0x04` write | UUID, then the bytes to write | UUID only. **(check)** The DirCon library replies with the UUID only; QZ adds the FTMS response bytes too. Start with UUID only. |
+| `0x04` write | UUID, then the bytes to write | UUID only. **(check)** The DirCon library replies with the UUID only; other implementations add the FTMS response bytes too. Start with UUID only. |
 | `0x05` enable notifications | UUID, then 1 byte: `1` on, `0` off | UUID only |
 | `0x07` | empty | empty, success |
 | anything else | n/a | response code `0x01`, empty |
@@ -113,7 +112,7 @@ The payload is the UUID followed by the value.
 
 - **Indoor Bike Data (`2AD2`) and Fitness Machine Status (`2ADA`):** send only to clients that enabled notifications on that characteristic.
 - **Control Point responses (`2AD9`):** send to **every connected client**, whether or not it enabled notifications. The DirCon library found Zwift needs this: Zwift doesn't always enable notifications on `2AD9`, and without the Request Control response, pairing never finishes.
-- **Optional:** when a client enables notifications on `2AD2`, send the latest Indoor Bike Data frame straight away. QZ does this for Apple TV and Windows clients. Add it only if Zwift on the Mac seems slow to show data.
+- **Optional:** when a client enables notifications on `2AD2`, send the latest Indoor Bike Data frame straight away. Some implementations do this for Apple TV and Windows clients. Add it only if Zwift on the Mac seems slow to show data.
 
 ### The characteristics to expose
 
@@ -252,6 +251,6 @@ New file: `App/TrainerCtrl/BLE/DirectConnectServer.swift`. A `@MainActor` class 
 ## Sources
 
 - [DirCon (Berg0162/DirCon)](https://github.com/Berg0162/DirCon): an ESP32 gateway tested with Zwift. See `docs/FTMS.md` for the Control Point note and `src/DirConManager.cpp` for the replies.
-- [QZ (cagnulein/qdomyos-zwift)](https://github.com/cagnulein/qdomyos-zwift): `src/devices/dircon/` (GPL-3, reference only).
+- [qdomyos-zwift](https://github.com/cagnulein/qdomyos-zwift): the inspiration for this feature.
 - [Wahoo: Using Direct Connect](https://support.wahoofitness.com/hc/en-us/articles/360018905100)
 - [SmartSpin2k issue 340](https://www.github.com/doudar/SmartSpin2k/issues/340): includes a packet capture of Zwift talking Direct Connect.
