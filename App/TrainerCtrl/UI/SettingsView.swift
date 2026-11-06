@@ -156,14 +156,18 @@ private struct TrainerSettings: View {
                 }
                 .pickerStyle(.segmented)
                 if bridge.source == .bluetooth {
-                    LabeledContent("Trainer", value: bridge.trainerBluetoothName ?? "Not connected yet")
+                    NavigationLink {
+                        TrainerPicker(bridge: bridge)
+                    } label: {
+                        LabeledContent("Trainer", value: bridge.trainerBluetoothName ?? "First one found")
+                    }
                 }
                 LabeledContent("Status", value: bridge.isRiding ? bridge.trainerState.label : "Connects when you start a ride")
                 if let last = bridge.lastTrainerConnection {
                     LabeledContent("Last connected", value: last.formatted(date: .abbreviated, time: .shortened))
                 }
             } footer: {
-                Text("Bluetooth connects to your smart trainer and remembers it. Simulate is a pretend trainer for trying the app without the bike. Choosing it turns on debug mode; switching back turns it off.")
+                Text("Bluetooth connects to your smart trainer: the one you choose, or the first one it finds, which it then remembers. Simulate is a pretend trainer for trying the app without the bike. Choosing it turns on debug mode; switching back turns it off.")
             }
             Section {
                 Stepper(value: $bridge.rider.realChainring, in: 20...60) {
@@ -319,4 +323,79 @@ private struct ActivityView: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+
+/// Settings → Trainer → Trainer: the smart trainers in range, to pick which one
+/// rides connect to, and the remembered one, to forget it.
+private struct TrainerPicker: View {
+    @Bindable var bridge: BridgeController
+    @State private var scanner = TrainerScanner()
+    @State private var savedID = FTMSTrainerLink.savedID
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        List {
+            if let name = bridge.trainerBluetoothName ?? (bridge.hasSavedTrainer ? "Saved trainer" : nil) {
+                Section {
+                    LabeledContent(name) {
+                        Image(systemName: "checkmark").foregroundStyle(.tint)
+                    }
+                    Button("Forget trainer", role: .destructive) {
+                        bridge.forgetTrainer()
+                        savedID = nil
+                    }
+                } header: {
+                    Text("Rides connect to")
+                } footer: {
+                    Text("Forget it and the next ride connects to the first trainer it finds.")
+                }
+            }
+            Section {
+                if let problem = scanner.problem {
+                    Text(problem).foregroundStyle(.secondary)
+                } else if others.isEmpty {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                        Text("Looking for trainers…").foregroundStyle(.secondary)
+                    }
+                }
+                ForEach(others) { trainer in
+                    Button {
+                        bridge.chooseTrainer(id: trainer.id, name: trainer.name)
+                        dismiss()
+                    } label: {
+                        HStack {
+                            Text(trainer.name).foregroundStyle(.primary).lineLimit(1)
+                            Spacer(minLength: 8)
+                            Image(systemName: "cellularbars", variableValue: signal(trainer.rssi))
+                                .foregroundStyle(.secondary)
+                                .accessibilityLabel("Signal \(Int(signal(trainer.rssi) * 100))%")
+                        }
+                    }
+                }
+            } header: {
+                HStack(spacing: 6) {
+                    Text("Nearby")
+                    if scanner.problem == nil && !others.isEmpty { ProgressView().controlSize(.mini) }
+                }
+            } footer: {
+                Text("Turn the trainer on and pedal to wake it. A trainer that's already connected to something, like Zwift or this app mid-ride, doesn't show up here. Closest first.")
+            }
+        }
+        .navigationTitle("Choose trainer")
+        .navigationBarTitleDisplayMode(.inline)
+        .animation(.default, value: scanner.trainers.map(\.id))
+        .onAppear { scanner.start() }
+        .onDisappear { scanner.stop() }
+    }
+
+    /// The trainers in range, less the one already chosen.
+    private var others: [TrainerScanner.Found] {
+        scanner.trainers.filter { $0.id != savedID }
+    }
+
+    /// Signal strength as 0…1 for the bars: about −95 dBm (barely there) to −50 (next to it).
+    private func signal(_ rssi: Int) -> Double {
+        min(1, max(0, Double(rssi + 95) / 45))
+    }
 }

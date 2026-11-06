@@ -603,6 +603,27 @@ final class BridgeController {
 
     // MARK: Trainer side
 
+    /// Remember this trainer for rides from now on (from "Choose trainer").
+    func chooseTrainer(id: UUID, name: String) {
+        UserDefaults.standard.set(id.uuidString, forKey: FTMSTrainerLink.savedTrainerKey)
+        trainerBluetoothName = name
+        record(.event, "settings", [], "trainer=\(name)")
+        if isRiding, source == .bluetooth { connectTrainer() }
+    }
+
+    /// Forget the remembered trainer: the next ride connects to the first one it finds.
+    func forgetTrainer() {
+        UserDefaults.standard.removeObject(forKey: FTMSTrainerLink.savedTrainerKey)
+        trainerBluetoothName = nil
+        record(.event, "settings", [], "trainer forgotten")
+        if isRiding, source == .bluetooth { connectTrainer() }
+    }
+
+    /// True once a trainer has been chosen or has connected.
+    var hasSavedTrainer: Bool {
+        UserDefaults.standard.string(forKey: FTMSTrainerLink.savedTrainerKey) != nil
+    }
+
     private func connectTrainer() {
         if calibrationRun?.phase.isActive == true { cancelCalibration() }
         link?.onEvent = nil

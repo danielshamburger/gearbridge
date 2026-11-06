@@ -4,8 +4,8 @@ import TrainerCore
 
 /// BLE central connection to a real FTMS trainer (the Flux S).
 ///
-/// Connects to the first trainer advertising FTMS, remembers it, and
-/// reconnects automatically. Control Point writes go through
+/// Connects to the trainer chosen in Settings, or with none chosen, the first
+/// one advertising FTMS (which it then remembers). Reconnects automatically. Control Point writes go through
 /// `ControlPointQueue` so only one is in flight at a time.
 @MainActor
 final class FTMSTrainerLink: NSObject, TrainerLink {
@@ -22,7 +22,15 @@ final class FTMSTrainerLink: NSObject, TrainerLink {
         static let all = [indoorBikeData, controlPoint, status, feature, powerRange]
     }
 
-    private static let savedTrainerKey = "trainerPeripheralID"
+    /// The remembered trainer's Bluetooth identifier. Set by connecting, or by
+    /// "Choose trainer" in Settings.
+    static let savedTrainerKey = "trainerPeripheralID"
+
+    static var savedID: UUID? {
+        UserDefaults.standard.string(forKey: savedTrainerKey).flatMap(UUID.init)
+    }
+
+    private var savedTrainerID: UUID? { Self.savedID }
 
     private var central: CBCentralManager?
     private var peripheral: CBPeripheral?
@@ -76,8 +84,7 @@ final class FTMSTrainerLink: NSObject, TrainerLink {
 
     private func beginConnecting(_ central: CBCentralManager) {
         guard running, central.state == .poweredOn, peripheral == nil else { return }
-        if let saved = UserDefaults.standard.string(forKey: Self.savedTrainerKey),
-           let id = UUID(uuidString: saved),
+        if let id = savedTrainerID,
            let known = central.retrievePeripherals(withIdentifiers: [id]).first {
             connect(known, using: central)
             return
@@ -124,6 +131,8 @@ extension FTMSTrainerLink: @preconcurrency CBCentralManagerDelegate {
         rssi RSSI: NSNumber
     ) {
         guard running, self.peripheral == nil else { return }
+        // With a trainer chosen, wait for that one rather than take another.
+        if let saved = savedTrainerID, peripheral.identifier != saved { return }
         central.stopScan()
         connect(peripheral, using: central)
     }
