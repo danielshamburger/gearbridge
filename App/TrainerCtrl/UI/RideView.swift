@@ -2,7 +2,9 @@ import SwiftUI
 import TrainerCore
 import UIKit
 
-/// The riding screen: gear, shifting and live numbers. Setup lives in `SettingsView`.
+/// The riding screen: live numbers and status at the top, the gear and shift
+/// buttons pinned near the bottom where a thumb reaches them. Setup lives in
+/// `SettingsView`.
 struct RideView: View {
     @Bindable var bridge: BridgeController
     @State private var volumeShifter = VolumeButtonShifter()
@@ -13,10 +15,10 @@ struct RideView: View {
     var body: some View {
         NavigationStack {
             List {
-                gearSection
                 liveSection
                 statusSection
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) { shiftPanel }
             .navigationTitle("TrainerCtrl")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -78,18 +80,25 @@ struct RideView: View {
 
     // MARK: Gear
 
-    private var gearSection: some View {
-        Section {
+    /// Pinned above the bottom edge, raised clear of the home indicator so a
+    /// thumb hits the buttons without triggering the swipe-home gesture.
+    private var shiftPanel: some View {
+        VStack(spacing: 10) {
+            if let note = shiftingNote {
+                Text(note).font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
             HStack(spacing: 12) {
                 shiftButton(.down, symbol: "minus", label: "Easier gear")
                 gearReadout.frame(maxWidth: .infinity)
                 shiftButton(.up, symbol: "plus", label: "Harder gear")
             }
-            .padding(.vertical, 8)
-            if let note = shiftingNote {
-                Text(note).font(.footnote).foregroundStyle(.secondary)
-            }
         }
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 28)
+        .frame(maxWidth: .infinity)
+        .background(.bar)
+        .overlay(alignment: .top) { Divider() }
     }
 
     private var gearReadout: some View {
@@ -131,7 +140,7 @@ struct RideView: View {
         } label: {
             Image(systemName: symbol)
                 .font(.system(size: 34, weight: .bold))
-                .frame(width: 84, height: 96)
+                .frame(width: 96, height: 104)
         }
         .buttonStyle(.borderedProminent)
         .buttonRepeatBehavior(.enabled)
