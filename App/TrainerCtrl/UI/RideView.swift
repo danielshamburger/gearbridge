@@ -14,16 +14,27 @@ struct RideView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                liveSection
-                statusSection
+            // Fixed layout, no scrolling: full-size gauges if they fit, smaller ones if not
+            // (small phones, debug mode).
+            ViewThatFits(in: .vertical) {
+                mainContent(scale: 1)
+                mainContent(scale: 0.78)
+                mainContent(scale: 0.6)
             }
-            .listSectionSpacing(.compact)                       // less space between the two cards
-            .contentMargins(.top, 4, for: .scrollContent)       // less space above the first
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(Color(.systemGroupedBackground))
             .safeAreaInset(edge: .bottom, spacing: 0) { shiftPanel }
-            .navigationTitle("TrainerCtrl")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+
+                ToolbarItem(placement: .principal) {
+                    HStack(spacing: 6) {
+                        StatusPill(symbol: "dot.radiowaves.left.and.right", title: "Trainer",
+                                   detail: bridge.trainerState.label, health: trainerHealth)
+                        StatusPill(symbol: "display", title: "Zwift",
+                                   detail: bridge.zwiftLabel, health: zwiftHealth)
+                    }
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     Button("End ride", role: .destructive) { confirmingEnd = true }
                         .confirmationDialog("End this ride?", isPresented: $confirmingEnd, titleVisibility: .visible) {
@@ -157,56 +168,138 @@ struct RideView: View {
 
     // MARK: Live data
 
-    private var liveSection: some View {
-        Section {
-            let data = bridge.latestData
-            VStack(spacing: 12) {
-                GaugeReadout(title: "Power", symbol: "bolt.fill", value: data?.instantaneousPower.map { "\($0)" }, unit: "W",
-                             gauge: data?.instantaneousPower.map(Double.init), range: 0...bridge.powerGauge.upperBound,
-                             tint: .orange, size: 200, lineWidth: 14, valueSize: 60, unitBeside: true)
-                HStack(spacing: 24) {
-                    GaugeReadout(title: "Cadence", symbol: "arrow.triangle.2.circlepath", value: data?.instantaneousCadence.map { String(format: "%.0f", $0) }, unit: "rpm",
-                                 gauge: data?.instantaneousCadence, range: 0...120,
-                                 tint: .teal, size: 120, lineWidth: 9, valueSize: 32)
-                    // The gauge's fill is a fraction, so it works in km/h whatever the display unit.
-                    GaugeReadout(title: "Speed", symbol: "speedometer",
-                                 value: data?.instantaneousSpeed.map { String(format: "%.1f", bridge.speedUnit.fromKilometersPerHour($0)) },
-                                 unit: bridge.speedUnit.label,
-                                 gauge: data?.instantaneousSpeed, range: 0...bridge.speedGauge.upperBound,
-                                 tint: .indigo, size: 120, lineWidth: 9, valueSize: 32)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.top, 2)
-            .padding(.bottom, 4)
-            .listRowSeparator(.hidden, edges: .bottom)   // gauges and slider read as one block
-            if bridge.source == .mock {
-                VStack(alignment: .leading) {
-                    Text("Mock cadence: \(Int(bridge.mockCadence)) rpm")
-                    CadenceSlider(cadence: $bridge.mockCadence)
-                }
-            }
-            if bridge.debugMode {
-                LabeledContent("Zwift command", value: bridge.commandLabel)
-                if let grade = bridge.trainerGrade {
-                    LabeledContent("Trainer grade", value: String(format: "%.1f%%", grade * 100))
-                }
-            }
-        }
-    }
-
-    // MARK: Status
-
-    private var statusSection: some View {
-        Section {
+    /// The screen's body at a given gauge scale; `ViewThatFits` picks the largest that fits.
+    private func mainContent(scale: CGFloat) -> some View {
+        VStack(spacing: 10) {
             if let alert = bridge.alertLabel {
                 Label(alert, systemImage: "exclamationmark.triangle.fill")
                     .font(.footnote)
                     .foregroundStyle(.orange)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+                    .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
             }
-            LabeledContent("Trainer", value: bridge.trainerState.label)
-            LabeledContent("Real gear", value: "\(bridge.rider.realChainring)×\(bridge.rider.realCog)")
-            LabeledContent("Zwift", value: bridge.zwiftLabel)
+            gaugesCard(scale: scale)
+            if bridge.debugMode { debugCard }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
+        .padding(.bottom, 10)
+    }
+
+    private func gaugesCard(scale: CGFloat) -> some View {
+        let data = bridge.latestData
+        return VStack(spacing: 12 * scale) {
+            GaugeReadout(title: "Power", symbol: "bolt.fill",
+                         value: data?.instantaneousPower.map { "\($0)" }, unit: "W",
+                         gauge: data?.instantaneousPower.map(Double.init), range: 0...bridge.powerGauge.upperBound,
+                         tint: .orange, size: 200 * scale, lineWidth: 14 * scale, valueSize: 60 * scale, unitBeside: true)
+            HStack(spacing: 24) {
+                GaugeReadout(title: "Cadence", symbol: "arrow.triangle.2.circlepath",
+                             value: data?.instantaneousCadence.map { String(format: "%.0f", $0) }, unit: "rpm",
+                             gauge: data?.instantaneousCadence, range: 0...120,
+                             tint: .teal, size: 120 * scale, lineWidth: 9 * scale, valueSize: 32 * scale)
+                // The gauge's fill is a fraction, so it works in km/h whatever the display unit.
+                GaugeReadout(title: "Speed", symbol: "speedometer",
+                             value: data?.instantaneousSpeed.map { String(format: "%.1f", bridge.speedUnit.fromKilometersPerHour($0)) },
+                             unit: bridge.speedUnit.label,
+                             gauge: data?.instantaneousSpeed, range: 0...bridge.speedGauge.upperBound,
+                             tint: .indigo, size: 120 * scale, lineWidth: 9 * scale, valueSize: 32 * scale)
+            }
+            if bridge.source == .mock {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Mock cadence: \(Int(bridge.mockCadence)) rpm").font(.subheadline)
+                    CadenceSlider(cadence: $bridge.mockCadence)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(16)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    /// Debug mode only: the bridge's internals, compact so the screen still doesn't scroll.
+    private var debugCard: some View {
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 4) {
+            debugRow("Trainer", bridge.trainerState.label)
+            debugRow("Zwift", bridge.zwiftLabel)
+            debugRow("Real gear", "\(bridge.rider.realChainring)×\(bridge.rider.realCog)")
+            debugRow("Zwift command", bridge.commandLabel)
+            if let grade = bridge.trainerGrade {
+                debugRow("Trainer grade", String(format: "%.1f%%", grade * 100))
+            }
+        }
+        .font(.caption)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func debugRow(_ label: String, _ value: String) -> some View {
+        GridRow {
+            Text(label).foregroundStyle(.secondary)
+            Text(value).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+        }
+    }
+
+    // MARK: Status pills
+
+    private var trainerHealth: StatusPill.Health {
+        switch bridge.trainerState {
+        case .connected: .good
+        case .scanning, .connecting, .disconnected: .working
+        case .bluetoothUnavailable: .bad
+        case .idle: .off
+        }
+    }
+
+    private var zwiftHealth: StatusPill.Health {
+        switch bridge.zwiftState {
+        case .advertising: bridge.zwiftSubscribers > 0 ? .good : .working
+        case .starting: .working
+        case .unavailable, .failed: .bad
+        case .stopped: .off
+        }
+    }
+}
+
+/// A compact status indicator for the navigation bar: icon, name and a
+/// coloured dot. Tap for the full status text.
+private struct StatusPill: View {
+    enum Health { case good, working, bad, off }
+
+    let symbol: String
+    let title: String
+    let detail: String
+    let health: Health
+    @State private var showingDetail = false
+
+    var body: some View {
+        Button { showingDetail = true } label: {
+            HStack(spacing: 4) {
+                Circle().fill(color).frame(width: 7, height: 7)
+                Image(systemName: symbol).imageScale(.small)
+                Text(title)
+            }
+            .font(.caption.weight(.medium))
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.15), in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $showingDetail) {
+            Text(detail).font(.footnote).padding().presentationCompactAdaptation(.popover)
+        }
+        .accessibilityLabel("\(title): \(detail)")
+    }
+
+    private var color: Color {
+        switch health {
+        case .good: .green
+        case .working: .orange
+        case .bad: .red
+        case .off: .gray
         }
     }
 }
