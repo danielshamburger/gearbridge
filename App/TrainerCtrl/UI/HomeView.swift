@@ -45,16 +45,33 @@ struct HomeView: View {
         }
     }
 
+    /// The current setup; tap to change it in Settings.
     private var summary: some View {
-        Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
-            row("Trainer", bridge.source.rawValue)
-            row("Gears", bridge.virtualShifting ? bridge.profile.name : "Virtual shifting off")
-            if bridge.virtualShifting {
-                row("Shifting", bridge.activeModel.rawValue)
+        Button {
+            showingSettings = true
+        } label: {
+            HStack(spacing: 12) {
+                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
+                    row("Trainer", bridge.source.rawValue)
+                    row("Gears", bridge.virtualShifting ? bridge.profile.name : "Virtual shifting off")
+                    if bridge.virtualShifting {
+                        row("Shifting", bridge.activeModel.rawValue)
+                    }
+                    row("Real gear", "\(bridge.rider.realChainring)×\(bridge.rider.realCog)")
+                }
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
             }
-            row("Real gear", "\(bridge.rider.realChainring)×\(bridge.rider.realCog)")
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+            .contentShape(RoundedRectangle(cornerRadius: 14))
         }
-        .font(.subheadline)
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens Settings")
     }
 
     private func row(_ label: String, _ value: String) -> some View {
