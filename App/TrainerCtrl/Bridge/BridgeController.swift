@@ -88,6 +88,14 @@ final class BridgeController {
         }
     }
 
+    /// How speeds are shown (km/h or mph). Display only.
+    var speedUnit: SpeedUnit {
+        didSet {
+            guard speedUnit != oldValue else { return }
+            UserDefaults.standard.set(speedUnit.rawValue, forKey: Keys.speedUnit)
+        }
+    }
+
     /// Shows the bridge's internals on the ride screen and logs every trainer
     /// data packet. Off, the log keeps commands, responses and events only.
     var debugMode: Bool {
@@ -185,6 +193,7 @@ final class BridgeController {
         static let reportsPower = "reportsPower"
         static let volumeButtonsShift = "volumeButtonsShift"
         static let debugMode = "debugMode"
+        static let speedUnit = "speedUnit"
         static let shiftingModel = "shiftingModel"
         static let calibration = "trainerCalibration"
         static let gearProfile = "gearProfile"
@@ -222,6 +231,7 @@ final class BridgeController {
         reportsPower = defaults.bool(forKey: Keys.reportsPower)
         volumeButtonsShift = defaults.bool(forKey: Keys.volumeButtonsShift)
         debugMode = defaults.bool(forKey: Keys.debugMode)
+        speedUnit = defaults.string(forKey: Keys.speedUnit).flatMap(SpeedUnit.init) ?? .localeDefault
         shiftingModel = defaults.string(forKey: Keys.shiftingModel).flatMap(ShiftingModel.init) ?? .simple
         savedCalibration = defaults.data(forKey: Keys.calibration)
             .flatMap { try? JSONDecoder().decode(SavedCalibration.self, from: $0) }

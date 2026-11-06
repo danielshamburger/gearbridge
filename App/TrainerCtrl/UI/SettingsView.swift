@@ -16,6 +16,7 @@ struct SettingsView: View {
                 shiftingSection
                 bikeSection
                 calibrationSection
+                displaySection
                 trainerSection
                 zwiftSection
                 logSection
@@ -103,6 +104,15 @@ struct SettingsView: View {
             return "Simple adds 1% grade per gear. Calibrated matches each gear's real effort and needs a trainer calibration first."
         }
         return "Simple adds 1% grade per gear. Calibrated scales the trainer's resistance so power and cadence match the virtual gear."
+    }
+
+    private var displaySection: some View {
+        Section("Display") {
+            Picker("Units", selection: $bridge.speedUnit) {
+                ForEach(SpeedUnit.allCases) { Text($0.name).tag($0) }
+            }
+            .pickerStyle(.segmented)
+        }
     }
 
     private var trainerSection: some View {

@@ -34,7 +34,7 @@ struct CalibrationView: View {
         case .settling?, .sampling?:
             if let run = bridge.calibrationRun { RunningView(bridge: bridge, run: run) }
         case .finished(let result)?:
-            ResultView(result: result, save: {
+            ResultView(result: result, unit: bridge.speedUnit, save: {
                 bridge.saveCalibration()
                 dismiss()
             }, discard: {
@@ -125,8 +125,9 @@ private struct RunningView: View {
                     Text("\(Int(step.targetCadence)) rpm")
                         .font(.system(size: 64, weight: .bold, design: .rounded))
                         .monospacedDigit()
-                    Text(String(format: "≈ %.1f km/h · grade %.0f%%%@",
-                                step.targetSpeed * 3.6, step.grade * 100, step.isFloor ? " (minimum resistance)" : ""))
+                    Text(String(format: "≈ %@ · grade %.0f%%%@",
+                                bridge.speedUnit.format(kilometersPerHour: step.targetSpeed * 3.6),
+                                step.grade * 100, step.isFloor ? " (minimum resistance)" : ""))
                         .font(.subheadline).foregroundStyle(.secondary).monospacedDigit()
                     ProgressView(value: run.stepProgress(at: bridge.calibrationTime))
                         .padding(.top, 4)
@@ -137,7 +138,7 @@ private struct RunningView: View {
             }
             Section {
                 LabeledContent("Cadence", value: format(bridge.latestData?.instantaneousCadence, "%.0f rpm"))
-                LabeledContent("Speed", value: format(bridge.latestData?.instantaneousSpeed, "%.1f km/h"))
+                LabeledContent("Speed", value: bridge.latestData?.instantaneousSpeed.map { bridge.speedUnit.format(kilometersPerHour: $0) } ?? "–")
                 LabeledContent("Power", value: bridge.latestData?.instantaneousPower.map { "\($0) W" } ?? "–")
             }
             if bridge.source == .mock {
@@ -174,6 +175,7 @@ private struct RunningView: View {
 
 private struct ResultView: View {
     let result: CalibrationResult
+    let unit: SpeedUnit
     let save: () -> Void
     let discard: () -> Void
 
@@ -192,7 +194,8 @@ private struct ResultView: View {
             Section("Measurements") {
                 ForEach(Array(result.measurements.enumerated()), id: \.offset) { _, m in
                     LabeledContent(
-                        String(format: "%@%.0f%% · %.1f km/h", m.step.isFloor ? "floor " : "", m.step.grade * 100, m.sample.speed * 3.6),
+                        String(format: "%@%.0f%% · %@", m.step.isFloor ? "floor " : "", m.step.grade * 100,
+                               unit.format(kilometersPerHour: m.sample.speed * 3.6)),
                         value: String(format: "%.0f W · %.1f N", m.sample.power, m.sample.force)
                     )
                     .monospacedDigit()

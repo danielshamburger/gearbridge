@@ -161,18 +161,27 @@ struct RideView: View {
             VStack(spacing: 12) {
                 GaugeReadout(title: "Power", value: data?.instantaneousPower.map { "\($0)" }, unit: "W",
                              gauge: data?.instantaneousPower.map(Double.init), range: 0...bridge.powerGauge.upperBound,
-                             tint: .orange, size: 200, lineWidth: 14, valueSize: 60)
+                             tint: .orange, size: 200, lineWidth: 14, valueSize: 60, unitBeside: true)
                 HStack(spacing: 24) {
                     GaugeReadout(title: "Cadence", value: data?.instantaneousCadence.map { String(format: "%.0f", $0) }, unit: "rpm",
                                  gauge: data?.instantaneousCadence, range: 0...120,
                                  tint: .teal, size: 120, lineWidth: 9, valueSize: 32)
-                    GaugeReadout(title: "Speed", value: data?.instantaneousSpeed.map { String(format: "%.1f", $0) }, unit: "km/h",
+                    // The gauge's fill is a fraction, so it works in km/h whatever the display unit.
+                    GaugeReadout(title: "Speed",
+                                 value: data?.instantaneousSpeed.map { String(format: "%.1f", bridge.speedUnit.fromKilometersPerHour($0)) },
+                                 unit: bridge.speedUnit.label,
                                  gauge: data?.instantaneousSpeed, range: 0...bridge.speedGauge.upperBound,
                                  tint: .indigo, size: 120, lineWidth: 9, valueSize: 32)
                 }
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
+            if bridge.source == .mock {
+                VStack(alignment: .leading) {
+                    Text("Mock cadence: \(Int(bridge.mockCadence)) rpm")
+                    CadenceSlider(cadence: $bridge.mockCadence)
+                }
+            }
             if bridge.debugMode {
                 LabeledContent("Zwift command", value: bridge.commandLabel)
                 if let grade = bridge.trainerGrade {
@@ -194,12 +203,6 @@ struct RideView: View {
             LabeledContent("Trainer", value: bridge.trainerState.label)
             LabeledContent("Real gear", value: "\(bridge.rider.realChainring)×\(bridge.rider.realCog)")
             LabeledContent("Zwift", value: bridge.zwiftLabel)
-            if bridge.source == .mock {
-                VStack(alignment: .leading) {
-                    Text("Mock cadence: \(Int(bridge.mockCadence)) rpm")
-                    CadenceSlider(cadence: $bridge.mockCadence)
-                }
-            }
         }
     }
 }
@@ -215,18 +218,25 @@ private struct GaugeReadout: View {
     let size: CGFloat
     let lineWidth: CGFloat
     let valueSize: CGFloat
+    /// Unit beside the number ("247 W") instead of below it.
+    var unitBeside = false
 
     var body: some View {
         ZStack {
             ArcGauge(value: gauge, range: range, tint: tint, lineWidth: lineWidth)
-            VStack(spacing: 0) {
-                Text(value ?? "–")
-                    .font(.system(size: valueSize, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                    .contentTransition(.numericText())
-                Text(unit).font(.system(size: valueSize * 0.3)).foregroundStyle(.secondary)
+            Group {
+                if unitBeside {
+                    HStack(alignment: .firstTextBaseline, spacing: 3) {
+                        number
+                        Text(unit).font(.system(size: valueSize * 0.4, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    VStack(spacing: 0) {
+                        number
+                        Text(unit).font(.system(size: valueSize * 0.3)).foregroundStyle(.secondary)
+                    }
+                }
             }
             .padding(.horizontal, lineWidth + 8)
             // The ring's open gap is at the bottom: the label sits there.
@@ -239,5 +249,14 @@ private struct GaugeReadout: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityValue(value.map { "\($0) \(unit)" } ?? "no reading")
+    }
+
+    private var number: some View {
+        Text(value ?? "–")
+            .font(.system(size: valueSize, weight: .semibold, design: .rounded))
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+            .contentTransition(.numericText())
     }
 }
