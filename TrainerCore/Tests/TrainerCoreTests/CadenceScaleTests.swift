@@ -23,6 +23,21 @@ struct CadenceScaleTests {
         #expect(perRpm(60, 100) > 2 * perRpm(100, 120))
     }
 
+    @Test func sensitivityChangesSmoothly() {
+        // No jump in rpm-per-track at the breakpoints: slopes just either side agree.
+        let e = 1e-6
+        for knee in [0.15, 0.85] {
+            let left = (scale.exactCadence(at: knee) - scale.exactCadence(at: knee - e)) / e
+            let right = (scale.exactCadence(at: knee + e) - scale.exactCadence(at: knee)) / e
+            #expect(abs(left - right) / left < 0.01)
+        }
+        // Finest around normal riding cadence.
+        let slope = { (p: Double) in (scale.exactCadence(at: p + 1e-4) - scale.exactCadence(at: p)) / 1e-4 }
+        let mid = slope(scale.position(for: 80))
+        #expect(mid < slope(scale.position(for: 30)) / 2)
+        #expect(mid < slope(scale.position(for: 110)))
+    }
+
     @Test func positionAndCadenceRoundTrip() {
         for rpm in stride(from: 0.0, through: 120, by: 1) {
             #expect(scale.cadence(at: scale.position(for: rpm)) == rpm)
