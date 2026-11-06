@@ -120,6 +120,16 @@ public struct GearProfile: Equatable, Sendable, Identifiable {
         return "\(drivetrain.chainring)×\(drivetrain.cogs[drivetrain.cogs.count - 1 - index])"
     }
 
+    /// A size for each gear, easiest first, for drawing the cassette: the cog's
+    /// teeth when the profile was built from teeth, otherwise 1 ÷ ratio (the
+    /// same proportions, since the chainring is fixed).
+    public var cogSizes: [Double] {
+        if let drivetrain, drivetrain.cogs.count == ratios.count {
+            return drivetrain.cogs.reversed().map(Double.init)
+        }
+        return ratios.map { 1 / $0 }
+    }
+
     public var gearCount: Int { ratios.count }
 
     /// The gear whose ratio is nearest `ratio`; ties go to the easier gear.

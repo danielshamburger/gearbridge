@@ -80,7 +80,7 @@ struct RideView: View {
 
     // MARK: Gear
 
-    /// Pinned above the bottom edge, raised clear of the home indicator so a
+    /// Pinned above the bottom edge, raised well clear of the home indicator so a
     /// thumb hits the buttons without triggering the swipe-home gesture.
     private var shiftPanel: some View {
         VStack(spacing: 10) {
@@ -95,7 +95,7 @@ struct RideView: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 14)
-        .padding(.bottom, 28)
+        .padding(.bottom, 44)
         .frame(maxWidth: .infinity)
         .background(.bar)
         .overlay(alignment: .top) { Divider() }
@@ -109,6 +109,11 @@ struct RideView: View {
                 .contentTransition(.numericText())
                 .animation(.snappy(duration: 0.15), value: bridge.gearNumber)
                 .foregroundStyle(limitFlash ? .red : .primary)
+            if let number = bridge.gearNumber {
+                CassetteView(cogSizes: bridge.profile.cogSizes, selected: number - 1,
+                             tint: limitFlash ? .red : .accentColor)
+                    .padding(.vertical, 4)
+            }
             Text(gearCaption).font(.caption).foregroundStyle(.secondary).monospacedDigit()
             if bridge.limit != .none {
                 Text(bridge.limit == .maximum ? "MAX RESISTANCE" : "MIN RESISTANCE")

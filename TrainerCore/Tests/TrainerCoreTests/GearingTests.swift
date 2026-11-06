@@ -46,6 +46,15 @@ struct GearProfileTests {
         #expect(Drivetrain.cassette(smallest: 11, largest: 11, count: 5) == [11])
     }
 
+    @Test func cogSizesForDrawing() throws {
+        // Easiest gear first: the biggest cog.
+        #expect(GearProfile.standard.cogSizes.first == 52)
+        #expect(GearProfile.standard.cogSizes.last == 10)
+        // Without teeth, proportional to 1 ÷ ratio.
+        let bare = try GearProfile(name: "bare", ratios: [1, 2, 4])
+        #expect(bare.cogSizes == [1, 0.5, 0.25])
+    }
+
     @Test func presetsAreValidAndDistinct() {
         #expect(GearProfile.presets.count == 6)
         #expect(Set(GearProfile.presets.map(\.id)).count == 6)
