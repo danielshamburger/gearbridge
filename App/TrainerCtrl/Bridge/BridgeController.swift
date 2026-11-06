@@ -188,6 +188,7 @@ final class BridgeController {
     @ObservationIgnored private var tickTask: Task<Void, Never>?
     @ObservationIgnored private var controlTask: Task<Void, Never>?
     @ObservationIgnored private var backgroundGuard = BackgroundRideGuard()
+    @ObservationIgnored private let liveActivity = RideActivityController()
     /// Why the last ride ended on its own, for the home screen. Cleared on the next ride.
     private(set) var autoEndNote: String?
 
@@ -254,6 +255,11 @@ final class BridgeController {
         }
         peripheral.publish() // at launch, so its GATT position is stable (see publish())
         refreshShiftState()
+        // Shifts from the lock screen and the Dynamic Island (ShiftIntent).
+        ShiftRouter.handler = { [weak self] harder in
+            guard let self, self.isRiding else { return }
+            self.shift(harder ? .up : .down)
+        }
     }
 
     // MARK: Ride
@@ -277,6 +283,7 @@ final class BridgeController {
         connectTrainer()
         startTicking()
         startControlLoop()
+        liveActivity.start(activityState)
     }
 
     /// Disconnects the trainer and stops advertising. Zwift stays paired (it
@@ -301,6 +308,7 @@ final class BridgeController {
         sendingZeros = false
         core.trainerDidDisconnect()
         refreshShiftState()
+        liveActivity.end()
     }
 
     /// A bridge with no trainer or Zwift state, using the current settings.
@@ -411,6 +419,14 @@ final class BridgeController {
         let command = core.lastEngineCommand
         trainerGrade = command?.parameters.grade
         limit = command?.limit ?? .none
+        if isRiding { liveActivity.update(activityState) }
+    }
+
+    /// What the lock screen and Dynamic Island show.
+    private var activityState: RideActivityAttributes.ContentState {
+        RideActivityAttributes.ContentState(
+            gear: gearNumber, gearCount: gearCount,
+            cogSizes: profile.cogSizes, label: gearLabel)
     }
 
     // MARK: Control loop

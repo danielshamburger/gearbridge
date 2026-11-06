@@ -40,7 +40,8 @@ cd TrainerCore && swift test
 2. Open TrainerCtrl and tap **Start ride**. The app connects to the trainer and shows up in Zwift.
 3. In Zwift, pair **Controllable** and **Cadence** to TrainerCtrl. Pair **Power** to TrainerCtrl too, unless you use ANT+ (below).
 4. Keep the app open while you pair. iOS only advertises to Zwift reliably while the app is on screen.
-   Once paired, locking the phone or switching apps keeps the trainer and Zwift connected, but shifting stops until you're back in the app.
+   Once paired, locking the phone or switching apps keeps the trainer and Zwift connected.
+   To shift from there, use the − / + buttons on the lock screen, or long-press the Dynamic Island. Volume-button shifting needs the app on screen.
    A ride left in the background with no pedalling for 10 minutes ends on its own, so the app stops using Bluetooth.
 5. When you're done, tap **End ride**.
 
@@ -63,6 +64,8 @@ cd TrainerCore && swift test
 | `App/TrainerCtrl/BLE` | The trainer connection, the mock trainer, and the virtual trainer that Zwift sees |
 | `App/TrainerCtrl/Bridge` | `BridgeController`: connects the pieces, stores settings, runs the ride |
 | `App/TrainerCtrl/UI` | Screens: home, ride, settings, gears, calibration |
+| `App/TrainerCtrlLiveActivity` | The lock screen and Dynamic Island widget extension |
+| `App/Shared` | Code in both the app and the extension: the Live Activity's data and the shift action |
 | `TrainerCore/Sources/TrainerCore` | FTMS encoding and decoding, bridge logic, gearing, shifting, calibration |
 | `Virtual Shifting Bridge for Tacx Flux S — Plan.md` | Design plan and background |
 
