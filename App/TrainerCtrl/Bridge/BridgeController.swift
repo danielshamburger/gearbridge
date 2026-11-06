@@ -469,6 +469,7 @@ final class BridgeController {
 
     private func tick() {
         if endRideIfAbandoned(at: now) { return }
+        liveActivity.heartbeat()
         let before = core.fallback
         perform(core.tick(at: now))
         if core.sendingZeros != sendingZeros {

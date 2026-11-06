@@ -9,20 +9,26 @@ import WidgetKit
 struct RideLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: RideActivityAttributes.self) { context in
-            LockScreenView(state: context.state)
+            LockScreenView(state: context.state, isStale: context.isStale)
                 .activityBackgroundTint(Color.black.opacity(0.55))
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             let state = context.state
+            // Stale: the app stopped updating (it was quit), so no shifting.
+            let live = state.gear != nil && !context.isStale
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    ShiftButton(harder: false, enabled: state.gear != nil, size: 52)
+                    ShiftButton(harder: false, enabled: live, size: 52)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    ShiftButton(harder: true, enabled: state.gear != nil, size: 52)
+                    ShiftButton(harder: true, enabled: live, size: 52)
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    GearReadout(state: state, numberSize: 34)
+                    if context.isStale {
+                        EndedLabel()
+                    } else {
+                        GearReadout(state: state, numberSize: 34)
+                    }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     if let gear = state.gear {
@@ -34,11 +40,11 @@ struct RideLiveActivity: Widget {
                 Image(systemName: "figure.indoor.cycle")
                     .foregroundStyle(.tint)
             } compactTrailing: {
-                Text(state.gear.map(String.init) ?? "–")
+                Text(context.isStale ? "–" : state.gear.map(String.init) ?? "–")
                     .font(.body.monospacedDigit().bold())
                     .contentTransition(.numericText())
             } minimal: {
-                Text(state.gear.map(String.init) ?? "–")
+                Text(context.isStale ? "–" : state.gear.map(String.init) ?? "–")
                     .font(.body.monospacedDigit().bold())
             }
             .keylineTint(.blue)
@@ -48,18 +54,23 @@ struct RideLiveActivity: Widget {
 
 private struct LockScreenView: View {
     let state: RideActivityAttributes.ContentState
+    let isStale: Bool
 
     var body: some View {
         HStack(spacing: 12) {
-            ShiftButton(harder: false, enabled: state.gear != nil, size: 64)
-            VStack(spacing: 6) {
-                GearReadout(state: state, numberSize: 40)
-                if let gear = state.gear {
-                    CassetteStrip(cogSizes: state.cogSizes, selected: gear - 1, height: 18)
+            if isStale {
+                EndedLabel().frame(maxWidth: .infinity)
+            } else {
+                ShiftButton(harder: false, enabled: state.gear != nil, size: 64)
+                VStack(spacing: 6) {
+                    GearReadout(state: state, numberSize: 40)
+                    if let gear = state.gear {
+                        CassetteStrip(cogSizes: state.cogSizes, selected: gear - 1, height: 18)
+                    }
                 }
+                .frame(maxWidth: .infinity)
+                ShiftButton(harder: true, enabled: state.gear != nil, size: 64)
             }
-            .frame(maxWidth: .infinity)
-            ShiftButton(harder: true, enabled: state.gear != nil, size: 64)
         }
         .padding(14)
         .foregroundStyle(.white)
@@ -84,6 +95,18 @@ private struct GearReadout: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+    }
+}
+
+/// Shown when the app has stopped updating the activity (it was quit).
+private struct EndedLabel: View {
+    var body: some View {
+        VStack(spacing: 2) {
+            Text("Ride ended").font(.headline)
+            Text("Open TrainerCtrl to ride again").font(.caption).foregroundStyle(.secondary)
         }
         .lineLimit(1)
         .minimumScaleFactor(0.7)
