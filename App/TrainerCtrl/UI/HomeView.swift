@@ -39,6 +39,18 @@ struct HomeView: View {
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
+            .background(alignment: .bottom) {
+                // The Mackinac Bridge, faint, spanning the gap above the buttons.
+                // Wider than the screen so the towers sit near the edges and
+                // the approaches run off both sides.
+                GeometryReader { geo in
+                    SuspensionBridgeArt()
+                        .frame(width: geo.size.width * 1.65, height: 190)
+                        .position(x: geo.size.width / 2, y: geo.size.height - 166 - 95)
+                }
+                .opacity(0.16)
+                .allowsHitTesting(false)
+            }
             .sheet(isPresented: $showingSettings) { SettingsView(bridge: bridge) }
         }
     }
