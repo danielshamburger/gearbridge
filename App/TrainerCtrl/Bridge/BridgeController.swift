@@ -234,7 +234,9 @@ final class BridgeController {
         isRiding = true
         clearLog()
         record(.event, "ride", [], "start")
-        resetCore()
+        // Zwift's side of the bridge (control, last command) carries over from
+        // the previous ride; only the gears start fresh.
+        resetEngine()
         refreshShiftState()
         peripheral.start()
         connectTrainer()
@@ -242,7 +244,8 @@ final class BridgeController {
         startControlLoop()
     }
 
-    /// Disconnects the trainer and stops advertising. The log is kept for export.
+    /// Disconnects the trainer and stops advertising. Zwift stays paired (it
+    /// just gets no data) and the log is kept for export.
     func endRide() {
         guard isRiding else { return }
         if calibrationRun?.phase.isActive == true { cancelCalibration() }
@@ -260,10 +263,8 @@ final class BridgeController {
         trainerState = .idle
         latestData = nil
         trainerFeature = nil
-        zwiftMode = .idle
-        fallback = .none
         sendingZeros = false
-        resetCore()
+        core.trainerDidDisconnect()
         refreshShiftState()
     }
 

@@ -25,7 +25,7 @@ struct RideView: View {
                         .confirmationDialog("End this ride?", isPresented: $confirmingEnd, titleVisibility: .visible) {
                             Button("End ride", role: .destructive) { bridge.endRide() }
                         } message: {
-                            Text("The trainer disconnects and Zwift loses it. The packet log is kept for export.")
+                            Text("The trainer disconnects and Zwift stops getting data, but stays paired for your next ride. The packet log is kept for export.")
                         }
                 }
                 ToolbarItem(placement: .topBarTrailing) {

@@ -55,22 +55,26 @@ final class VirtualTrainerPeripheral: NSObject {
         super.init()
     }
 
+    /// Publishes the service (first time only) and starts advertising.
+    ///
+    /// The service stays published until the app quits, even between rides:
+    /// removing and re-adding it changes its GATT handles, and Zwift (and the
+    /// Mac's Bluetooth cache) keep using the old ones, so Zwift ends up linked
+    /// but never subscribes or writes.
     func start() {
-        guard manager == nil else { return }
         state = .starting
-        manager = CBPeripheralManager(delegate: self, queue: nil)
+        if let manager {
+            if manager.state == .poweredOn { addService(manager) } // re-advertises if already added
+        } else {
+            manager = CBPeripheralManager(delegate: self, queue: nil)
+        }
     }
 
-    /// Stops advertising and drops the service, so Zwift loses the trainer.
+    /// Stops advertising. The service and any Zwift subscriptions stay, so
+    /// the next ride carries on without re-pairing.
     func stop() {
-        guard let manager else { return }
-        manager.stopAdvertising()
-        manager.removeAllServices()
-        manager.delegate = nil
-        self.manager = nil
-        serviceAdded = false
+        manager?.stopAdvertising()
         pending = []
-        subscriberCount = 0
         state = .stopped
     }
 
@@ -124,7 +128,10 @@ final class VirtualTrainerPeripheral: NSObject {
     }
 
     private func startAdvertising(_ manager: CBPeripheralManager) {
-        guard !manager.isAdvertising else { return }
+        guard !manager.isAdvertising else {
+            state = .advertising
+            return
+        }
         manager.startAdvertising([
             CBAdvertisementDataLocalNameKey: name,
             CBAdvertisementDataServiceUUIDsKey: [CBUUID(string: FTMSUUID.service)],
