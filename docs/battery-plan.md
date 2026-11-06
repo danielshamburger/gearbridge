@@ -80,6 +80,8 @@ Brightness is a system-wide value, so the app must never leave it dimmed.
 
 ### 7. Keep Bluetooth working while the phone is locked
 
+**Status:** done. The background modes are in `App/TrainerCtrl-Info.plist`. `BackgroundRideGuard` ends a ride after 10 minutes in the background without pedalling. The device checks below are still to do.
+
 **Setup:** add the `bluetooth-central` and `bluetooth-peripheral` background modes (`INFOPLIST_KEY_UIBackgroundModes` in the project).
 
 **Expected while locked:**

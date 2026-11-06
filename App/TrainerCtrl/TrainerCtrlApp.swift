@@ -6,6 +6,7 @@ struct TrainerCtrlApp: App {
     /// talks to, and a second instance would publish a second copy.
     @MainActor private static let sharedBridge = BridgeController()
     @State private var bridge = TrainerCtrlApp.sharedBridge
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -17,6 +18,13 @@ struct TrainerCtrlApp: App {
                 }
             }
             .animation(.default, value: bridge.isRiding)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .background: bridge.appEnteredBackground()
+            case .active: bridge.appBecameActive()
+            default: break
+            }
         }
     }
 }

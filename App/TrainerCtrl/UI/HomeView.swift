@@ -15,6 +15,12 @@ struct HomeView: View {
                     Text("TrainerCtrl").font(.largeTitle.bold())
                 }
                 summary
+                if let note = bridge.autoEndNote {
+                    Label(note, systemImage: "moon.zzz")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 Spacer()
                 VStack(spacing: 12) {
                     Button {

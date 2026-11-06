@@ -39,7 +39,9 @@ cd TrainerCore && swift test
 1. Put the chain in the cog you set under **Settings → Real gear on the trainer** (42×18 by default).
 2. Open TrainerCtrl and tap **Start ride**. The app connects to the trainer and shows up in Zwift.
 3. In Zwift, pair **Controllable** and **Cadence** to TrainerCtrl. Pair **Power** to TrainerCtrl too, unless you use ANT+ (below).
-4. Keep the app in the foreground while you ride. iOS only advertises to Zwift reliably while the app is open.
+4. Keep the app open while you pair. iOS only advertises to Zwift reliably while the app is on screen.
+   Once paired, locking the phone or switching apps keeps the trainer and Zwift connected, but shifting stops until you're back in the app.
+   A ride left in the background with no pedalling for 10 minutes ends on its own, so the app stops using Bluetooth.
 5. When you're done, tap **End ride**.
 
 **Events that require a power meter.** Zwift blocks power that comes through a bridge. In those events:

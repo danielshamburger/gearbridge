@@ -187,6 +187,9 @@ final class BridgeController {
     @ObservationIgnored private let clockStart = ContinuousClock.now
     @ObservationIgnored private var tickTask: Task<Void, Never>?
     @ObservationIgnored private var controlTask: Task<Void, Never>?
+    @ObservationIgnored private var backgroundGuard = BackgroundRideGuard()
+    /// Why the last ride ended on its own, for the home screen. Cleared on the next ride.
+    private(set) var autoEndNote: String?
 
     private enum Keys {
         static let virtualShifting = "virtualShifting"
@@ -264,6 +267,8 @@ final class BridgeController {
         speedGauge.reset()
         clearLog()
         record(.event, "ride", [], "start")
+        autoEndNote = nil
+        backgroundGuard.rideStarted(at: now)
         // Zwift's side of the bridge (control, last command) carries over from
         // the previous ride; only the gears start fresh.
         resetEngine()
@@ -303,6 +308,35 @@ final class BridgeController {
         core = BridgeCore()
         core.reportsPower = reportsPower
         if virtualShifting { _ = core.setEngine(makeEngine()) }
+    }
+
+    // MARK: Background
+
+    // The app has the Bluetooth background modes, so a ride keeps going with
+    // the phone locked. Bluetooth is only used during a ride; a ride left in
+    // the background without pedalling ends itself (see BackgroundRideGuard).
+
+    func appEnteredBackground() {
+        backgroundGuard.enteredBackground(at: now)
+        if isRiding { record(.event, "app", [], "background") }
+    }
+
+    func appBecameActive() {
+        // Check first: it may have been suspended past the limit.
+        if endRideIfAbandoned(at: now) == false, isRiding, backgroundGuard.inBackground {
+            record(.event, "app", [], "foreground")
+        }
+        backgroundGuard.becameActive(at: now)
+    }
+
+    /// Ends the ride if it's been left in the background, idle, for too long.
+    private func endRideIfAbandoned(at time: TimeInterval) -> Bool {
+        guard isRiding, backgroundGuard.shouldEndRide(at: time) else { return false }
+        let minutes = Int(backgroundGuard.idleLimit / 60)
+        record(.event, "ride", [], "ended automatically: \(minutes) min in the background without pedalling")
+        endRide()
+        autoEndNote = "Your last ride ended on its own after \(minutes) minutes in the background without pedalling."
+        return true
     }
 
     // MARK: Shifting
@@ -412,6 +446,7 @@ final class BridgeController {
     }
 
     private func tick() {
+        if endRideIfAbandoned(at: now) { return }
         let before = core.fallback
         perform(core.tick(at: now))
         if core.sendingZeros != sendingZeros {
@@ -522,6 +557,8 @@ final class BridgeController {
         case .data(let data, let raw):
             latestData = data
             let time = now
+            backgroundGuard.observe(data, at: time)
+            if endRideIfAbandoned(at: time) { return }
             if let watts = data.instantaneousPower { powerGauge.observe(Double(watts), at: time) }
             if let kmh = data.instantaneousSpeed { speedGauge.observe(kmh, at: time) }
             // The bulk of the log (several a second); only kept in debug mode.
