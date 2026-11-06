@@ -18,6 +18,8 @@ struct RideView: View {
                 liveSection
                 statusSection
             }
+            .listSectionSpacing(.compact)                       // less space between the two cards
+            .contentMargins(.top, 4, for: .scrollContent)       // less space above the first
             .safeAreaInset(edge: .bottom, spacing: 0) { shiftPanel }
             .navigationTitle("TrainerCtrl")
             .navigationBarTitleDisplayMode(.inline)
@@ -175,7 +177,8 @@ struct RideView: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
+            .padding(.top, 2)
+            .padding(.bottom, 4)
             if bridge.source == .mock {
                 VStack(alignment: .leading) {
                     Text("Mock cadence: \(Int(bridge.mockCadence)) rpm")
