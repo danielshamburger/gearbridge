@@ -46,6 +46,10 @@ final class BridgeController {
         didSet {
             guard source != oldValue else { return }
             UserDefaults.standard.set(source.rawValue, forKey: Keys.source)
+            // Simulating is for testing, so show the debug readouts with it;
+            // switching back to the real trainer turns them off again. Debug
+            // mode can still be toggled by hand either way.
+            debugMode = source == .mock
             if isRiding { connectTrainer() }
         }
     }

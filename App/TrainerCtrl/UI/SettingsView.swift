@@ -160,7 +160,7 @@ private struct TrainerSettings: View {
                     LabeledContent("Last connected", value: last.formatted(date: .abbreviated, time: .shortened))
                 }
             } footer: {
-                Text("Simulate is a pretend trainer for trying the app without the bike.")
+                Text("Simulate is a pretend trainer for trying the app without the bike. Choosing it turns on debug mode; switching back turns it off.")
             }
             Section {
                 Stepper(value: $bridge.rider.realChainring, in: 20...60) {
