@@ -522,8 +522,8 @@ final class BridgeController {
         if calibrationRun?.phase.isActive == true { return "Calibrating: Zwift's commands are on hold." }
         if sendingZeros {
             return trainerState.isConnected
-                ? "No data from the trainer. Zwift is getting zeros until it's back."
-                : "Trainer not connected (\(trainerState.label.lowercased())). Zwift is getting zeros meanwhile."
+                ? "No data from the trainer."
+                : "Trainer not connected (\(trainerState.label.lowercased()))."
         }
         switch fallback {
         case .zwiftDisconnected: return "Zwift disconnected, so the trainer was eased to a flat road."

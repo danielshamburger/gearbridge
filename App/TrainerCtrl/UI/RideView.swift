@@ -220,15 +220,28 @@ struct RideView: View {
     /// The screen's body at a given gauge scale; `ViewThatFits` picks the largest that fits.
     private func mainContent(scale: CGFloat) -> some View {
         VStack(spacing: 10) {
-            if let alert = bridge.alertLabel {
-                Label(alert, systemImage: "exclamationmark.triangle.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.orange)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10)
-                    .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
-            }
             gaugesCard(scale: scale)
+                // Floats over the top of the card, so the gauges don't jump
+                // down when it appears.
+                .overlay(alignment: .top) {
+                    if let alert = bridge.alertLabel {
+                        Label(alert, systemImage: "exclamationmark.triangle.fill")
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(10)
+                            .background {
+                                // Opaque, so the gauge doesn't show through
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color(.secondarySystemGroupedBackground))
+                                    .overlay(RoundedRectangle(cornerRadius: 10).fill(.orange.opacity(0.15)))
+                                    .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
+                            }
+                            .padding(8)
+                            .transition(.opacity)
+                    }
+                }
+                .animation(.easeOut(duration: 0.2), value: bridge.alertLabel)
             if bridge.source == .mock { mockCard }
             if bridge.debugMode { debugCard }
         }
