@@ -7,26 +7,19 @@ import TrainerCore
 ///
 /// iOS only advertises reliably while the app is in the foreground.
 @MainActor
-final class VirtualTrainerPeripheral: NSObject {
-    enum State: Equatable {
-        case stopped
-        case starting
-        case unavailable(String)
-        case advertising
-        case failed(String)
-    }
-
+final class VirtualTrainerPeripheral: NSObject, ZwiftLink {
     let name: String
     var onControlPointWrite: (@MainActor ([UInt8]) -> Void)?
     var onChange: (@MainActor () -> Void)?
     /// Bluetooth-level activity (service added, advertising, reads, subscriptions), for the packet log.
     var onLog: (@MainActor (String) -> Void)?
 
-    var feature = BridgeCore.virtualFeature(copying: nil)
-    var powerRange = BridgeCore.defaultPowerRange
-    var resistanceRange = BridgeCore.defaultResistanceRange
+    private var gatt = VirtualTrainerGATT()
+    var feature: FitnessMachineFeature { get { gatt.feature } set { gatt.feature = newValue } }
+    var powerRange: SupportedPowerRange { get { gatt.powerRange } set { gatt.powerRange = newValue } }
+    var resistanceRange: SupportedResistanceLevelRange { get { gatt.resistanceRange } set { gatt.resistanceRange = newValue } }
 
-    private(set) var state: State = .stopped { didSet { onChange?() } }
+    private(set) var state: ZwiftLinkState = .stopped { didSet { onChange?() } }
     /// Centrals subscribed to Indoor Bike Data, i.e. Zwift actually listening.
     private(set) var subscriberCount = 0 { didSet { onChange?() } }
 
@@ -162,16 +155,6 @@ final class VirtualTrainerPeripheral: NSObject {
         ])
     }
 
-    private func readValue(for uuid: CBUUID) -> [UInt8]? {
-        switch uuid {
-        case featureCharacteristic.uuid: feature.encoded()
-        case powerRangeCharacteristic.uuid: powerRange.encoded()
-        case resistanceRangeCharacteristic.uuid: resistanceRange.encoded()
-        case trainingStatus.uuid: [0x00, 0x01] // no string, status "Idle"
-        default: nil
-        }
-    }
-
     private func updateSubscriberCount() {
         subscriberCount = indoorBikeData.subscribedCentrals?.count ?? 0
         if subscriberCount > 0 {
@@ -256,7 +239,7 @@ extension VirtualTrainerPeripheral: @preconcurrency CBPeripheralManagerDelegate 
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveRead request: CBATTRequest) {
-        let value = readValue(for: request.characteristic.uuid)
+        let value = gatt.readValue(forUUID: request.characteristic.uuid.uuidString)
         onLog?("read \(request.characteristic.uuid.uuidString) by \(request.central.identifier.uuidString.prefix(8))"
                + (value.map { " → " + $0.map { String(format: "%02X", $0) }.joined(separator: " ") } ?? " → not permitted"))
         guard let value else {
