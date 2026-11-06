@@ -18,6 +18,9 @@ Tacx Flux S  ──BLE (FTMS)──▶  TrainerCtrl (iPhone)  ──BLE (FTMS)�
 - Two shifting models:
   - **Simple:** each gear adds a fixed grade (1% by default).
   - **Calibrated:** each gear matches the power and cadence a real gear would need. It needs a one-time trainer calibration, which the app guides you through.
+- Shift from the lock screen or the Dynamic Island, with the phone locked or in another app.
+- Remembers your trainer, and lets you pick it when there's more than one nearby.
+- Works in events that require a power meter: Zwift takes power straight from the trainer over ANT+, or over Bluetooth if your trainer accepts a second connection, while the app keeps the shifting.
 
 ## Riding
 
@@ -33,7 +36,7 @@ Tacx Flux S  ──BLE (FTMS)──▶  TrainerCtrl (iPhone)  ──BLE (FTMS)�
 
 **Events that require a power meter.** Zwift blocks power that comes through a bridge. In those events:
 1. Turn off **Send power to Zwift**.
-2. In Zwift, pair **Power** to the Flux S directly over ANT+.
+2. In Zwift, pair **Power** to the Flux S directly over ANT+, or over Bluetooth if the trainer accepts a second connection.
 3. Keep **Controllable** paired to TrainerCtrl.
 
 ## Requirements
@@ -75,8 +78,8 @@ cd TrainerCore && swift test
 
 - **Debug mode:** under **Settings → Diagnostics**. It shows Zwift's command and the trainer grade while riding, and logs every trainer reading.
 - **Packet log:** each ride's commands, responses and events, exported as CSV from **Settings → Diagnostics**.
-- **Simulate:** under **Settings → Trainer → Source**, a pretend trainer for trying the app without the bike. Choosing it turns on debug mode.
 - **Failsafes:** if the trainer stops sending data, Zwift gets zeros. If Zwift disconnects or goes quiet, the trainer eases to a flat road.
+- **Simulate:** under **Settings → Trainer → Source**, a simulated trainer for trying the app without the bike. Choosing it turns on debug mode.
 
 ## Layout
 
