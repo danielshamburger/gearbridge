@@ -51,6 +51,14 @@ final class BridgeController {
     private(set) var trainerState: TrainerLinkState = .idle
     private(set) var zwiftState: VirtualTrainerPeripheral.State = .starting
     private(set) var zwiftSubscribers = 0
+    /// When the real trainer and Zwift last connected, for the home screen's
+    /// "ready" hints. Saved across launches.
+    private(set) var lastTrainerConnection: Date? {
+        didSet { UserDefaults.standard.set(lastTrainerConnection, forKey: Keys.lastTrainerConnection) }
+    }
+    private(set) var lastZwiftConnection: Date? {
+        didSet { UserDefaults.standard.set(lastZwiftConnection, forKey: Keys.lastZwiftConnection) }
+    }
     private(set) var latestData: IndoorBikeData?
     private(set) var zwiftMode: BridgeCore.ZwiftMode = .idle
     private(set) var logCount = 0
@@ -202,6 +210,8 @@ final class BridgeController {
         static let reportsPower = "reportsPower"
         static let volumeButtonsShift = "volumeButtonsShift"
         static let debugMode = "debugMode"
+        static let lastTrainerConnection = "lastTrainerConnection"
+        static let lastZwiftConnection = "lastZwiftConnection"
         static let speedUnit = "speedUnit"
         static let source = "trainerSource"
         static let shiftingModel = "shiftingModel"
@@ -228,6 +238,8 @@ final class BridgeController {
     init() {
         let defaults = UserDefaults.standard
         source = defaults.string(forKey: Keys.source).flatMap(TrainerSource.init) ?? .bluetooth
+        lastTrainerConnection = defaults.object(forKey: Keys.lastTrainerConnection) as? Date
+        lastZwiftConnection = defaults.object(forKey: Keys.lastZwiftConnection) as? Date
         defaults.register(defaults: [
             Keys.virtualShifting: true,
             Keys.reportsPower: true,
@@ -255,6 +267,7 @@ final class BridgeController {
             if self.zwiftSubscribers != self.peripheral.subscriberCount {
                 self.zwiftSubscribers = self.peripheral.subscriberCount
                 let connected = self.zwiftSubscribers > 0
+                if connected { self.lastZwiftConnection = Date() }
                 self.record(.event, "zwift", [], connected ? "connected" : "disconnected")
                 self.core.zwiftConnectionChanged(connected: connected, at: self.now)
             }
@@ -589,6 +602,7 @@ final class BridgeController {
         switch event {
         case .state(let state):
             trainerState = state
+            if state.isConnected, source == .bluetooth { lastTrainerConnection = Date() }
             if !state.isConnected { core.trainerDidDisconnect() }
             record(.event, "trainerState", [], state.label)
         case .ready:

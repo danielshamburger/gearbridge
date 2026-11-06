@@ -47,7 +47,7 @@ struct RideLiveActivity: Widget {
                 Text(context.isStale ? "–" : state.gear.map(String.init) ?? "–")
                     .font(.body.monospacedDigit().bold())
             }
-            .keylineTint(.blue)
+            .keylineTint(.accentColor)
         }
     }
 }
@@ -146,7 +146,7 @@ private struct CassetteStrip: View {
         HStack(spacing: 2) {
             ForEach(Array(cogSizes.enumerated()), id: \.offset) { index, size in
                 Capsule()
-                    .fill(index == selected ? Color.blue : Color.white.opacity(0.35))
+                    .fill(index == selected ? Color.accentColor : Color.white.opacity(0.35))
                     .frame(width: 4, height: max(height * size / biggest, 4))
             }
         }

@@ -9,6 +9,10 @@ struct RideView: View {
     @Bindable var bridge: BridgeController
     @State private var volumeShifter = VolumeButtonShifter()
     @State private var limitFlash = false
+    /// Briefly true after a shift: the gear number pops.
+    @State private var gearPulse = false
+    /// "TOP GEAR" / "EASIEST GEAR", shown briefly when a shift hits the end.
+    @State private var limitMessage: String?
     @State private var showingSettings = false
     @State private var confirmingEnd = false
 
@@ -22,7 +26,7 @@ struct RideView: View {
                 mainContent(scale: 0.6)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .background(Color(.systemGroupedBackground))
+            .background(Color.black)
             .safeAreaInset(edge: .bottom, spacing: 0) { shiftPanel }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -73,14 +77,35 @@ struct RideView: View {
         .onChange(of: volumeShiftingActive) { updateVolumeShifter() }
         .onChange(of: bridge.lastShift) { _, event in
             guard let event else { return }
-            if case .shifted = event.outcome { return }
-            limitFlash = true
-            Task {
-                try? await Task.sleep(for: .milliseconds(300))
-                limitFlash = false
+            switch event.outcome {
+            case .shifted:
+                gearPulse = true
+                Task {
+                    try? await Task.sleep(for: .milliseconds(120))
+                    gearPulse = false
+                }
+            case .atLimit:
+                limitFlash = true
+                limitMessage = bridge.gearNumber == bridge.gearCount ? "TOP GEAR" : "EASIEST GEAR"
+                Task {
+                    try? await Task.sleep(for: .milliseconds(300))
+                    limitFlash = false
+                    try? await Task.sleep(for: .milliseconds(600))
+                    limitMessage = nil
+                }
+            default:
+                limitFlash = true
+                Task {
+                    try? await Task.sleep(for: .milliseconds(300))
+                    limitFlash = false
+                }
             }
         }
         .sheet(isPresented: $showingSettings) { SettingsView(bridge: bridge) }
+        // Always dark while riding: easier on the eyes in a dim pain cave, and
+        // black pixels cost almost nothing on OLED screens. Home and Settings
+        // outside a ride follow the system setting.
+        .preferredColorScheme(.dark)
     }
 
     private var volumeShiftingActive: Bool {
@@ -117,17 +142,33 @@ struct RideView: View {
     private var gearReadout: some View {
         VStack(spacing: 2) {
             Text(bridge.gearNumber.map(String.init) ?? "–")
-                .font(.system(size: 72, weight: .bold, design: .rounded))
+                .font(.system(size: 80, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .contentTransition(.numericText())
                 .animation(.snappy(duration: 0.15), value: bridge.gearNumber)
                 .foregroundStyle(limitFlash ? .red : .primary)
+                .scaleEffect(gearPulse ? 1.08 : 1)
+                .animation(.spring(response: 0.18, dampingFraction: 0.6), value: gearPulse)
+                .overlay(alignment: .top) {
+                    if let limitMessage {
+                        Text(limitMessage)
+                            .font(.caption2.weight(.bold))
+                            .tracking(0.8)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(.red, in: Capsule())
+                            .foregroundStyle(.white)
+                            .offset(y: -10)
+                            .transition(.opacity)
+                    }
+                }
+                .animation(.easeOut(duration: 0.2), value: limitMessage)
             if let number = bridge.gearNumber {
                 CassetteView(cogSizes: bridge.profile.cogSizes, selected: number - 1,
                              tint: limitFlash ? .red : .accentColor)
                     .padding(.vertical, 4)
             }
-            Text(gearCaption).font(.caption).foregroundStyle(.secondary).monospacedDigit()
+            Text(gearCaption).font(.caption.weight(.medium)).foregroundStyle(.secondary).monospacedDigit()
             if bridge.limit != .none {
                 Text(bridge.limit == .maximum ? "MAX RESISTANCE" : "MIN RESISTANCE")
                     .font(.caption2.bold())
@@ -141,9 +182,9 @@ struct RideView: View {
     }
 
     private var gearCaption: String {
-        guard let n = bridge.gearNumber, let ratio = bridge.gearRatio else { return "Virtual shifting off" }
+        guard bridge.gearNumber != nil, let ratio = bridge.gearRatio else { return "Virtual shifting off" }
         let gear = bridge.gearLabel ?? String(format: "ratio %.2f", ratio)
-        return "of \(bridge.gearCount) · \(gear)" + (n == bridge.gearCount ? " · top" : "")
+        return "of \(bridge.gearCount) · \(gear)"
     }
 
     private var shiftingNote: String? {
@@ -192,18 +233,18 @@ struct RideView: View {
         let data = bridge.latestData
         return VStack(spacing: 12 * scale) {
             GaugeReadout(title: "Power", symbol: "bolt.fill",
-                         value: data?.instantaneousPower.map { "\($0)" }, unit: "W",
+                         value: data?.instantaneousPower.map { "\($0)" }, unit: "WATTS",
                          gauge: data?.instantaneousPower.map(Double.init), range: 0...bridge.powerGauge.upperBound,
-                         tint: .orange, size: 200 * scale, lineWidth: 14 * scale, valueSize: 60 * scale, unitBeside: true)
+                         tint: .orange, size: 200 * scale, lineWidth: 14 * scale, valueSize: 60 * scale, isHero: true)
             HStack(spacing: 24) {
                 GaugeReadout(title: "Cadence", symbol: "arrow.triangle.2.circlepath",
-                             value: data?.instantaneousCadence.map { String(format: "%.0f", $0) }, unit: "rpm",
+                             value: data?.instantaneousCadence.map { String(format: "%.0f", $0) }, unit: "RPM",
                              gauge: data?.instantaneousCadence, range: 0...120,
                              tint: .teal, size: 120 * scale, lineWidth: 9 * scale, valueSize: 32 * scale)
                 // The gauge's fill is a fraction, so it works in km/h whatever the display unit.
                 GaugeReadout(title: "Speed", symbol: "speedometer",
                              value: data?.instantaneousSpeed.map { String(format: "%.1f", bridge.speedUnit.fromKilometersPerHour($0)) },
-                             unit: bridge.speedUnit.label,
+                             unit: bridge.speedUnit.label.uppercased(),
                              gauge: data?.instantaneousSpeed, range: 0...bridge.speedGauge.upperBound,
                              tint: .indigo, size: 120 * scale, lineWidth: 9 * scale, valueSize: 32 * scale)
             }
@@ -323,33 +364,25 @@ private struct GaugeReadout: View {
     let size: CGFloat
     let lineWidth: CGFloat
     let valueSize: CGFloat
-    /// Unit beside the number ("247 W") instead of below it.
-    var unitBeside = false
+    /// The large gauge: its unit label is a little smaller relative to the number.
+    var isHero = false
 
     var body: some View {
         ZStack {
             ArcGauge(value: gauge, range: range, tint: tint, lineWidth: lineWidth)
             Group {
-                if unitBeside {
-                    HStack(alignment: .firstTextBaseline, spacing: 3) {
-                        number
-                        Text(unit).font(.system(size: valueSize * 0.4, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    VStack(spacing: 0) {
-                        number
-                        Text(unit).font(.system(size: valueSize * 0.3)).foregroundStyle(.secondary)
-                    }
+                VStack(spacing: 0) {
+                    number
+                    unitLabel
                 }
             }
             .padding(.horizontal, lineWidth + 8)
             // The ring's open gap is at the bottom: the label sits there.
             HStack(spacing: 4) {
                 Image(systemName: symbol).foregroundStyle(tint)
-                Text(title).foregroundStyle(.secondary)
+                Text(title.uppercased()).foregroundStyle(.secondary).tracking(0.8)
             }
-            .font(.system(size: max(valueSize * 0.28, 11), weight: .medium))
+            .font(.system(size: max(valueSize * 0.22, 10), weight: .semibold))
             .frame(maxHeight: .infinity, alignment: .bottom)
         }
         .frame(width: size, height: size)
@@ -358,6 +391,7 @@ private struct GaugeReadout: View {
         .accessibilityValue(value.map { "\($0) \(unit)" } ?? "no reading")
     }
 
+    /// Same-width digits, rolling as they change.
     private var number: some View {
         Text(value ?? "–")
             .font(.system(size: valueSize, weight: .semibold, design: .rounded))
@@ -365,5 +399,14 @@ private struct GaugeReadout: View {
             .lineLimit(1)
             .minimumScaleFactor(0.5)
             .contentTransition(.numericText())
+            .animation(.snappy(duration: 0.25), value: value)
+    }
+
+    /// Small grey caps under the number: WATTS, RPM, KM/H.
+    private var unitLabel: some View {
+        Text(unit)
+            .font(.system(size: max(valueSize * (isHero ? 0.2 : 0.26), 9), weight: .semibold))
+            .tracking(0.8)
+            .foregroundStyle(.secondary)
     }
 }
