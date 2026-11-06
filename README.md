@@ -1,3 +1,5 @@
+<img src="docs/app-icon.png" width="128" alt="TrainerCtrl app icon">
+
 # TrainerCtrl
 
 An iPhone app that adds virtual shifting to a Tacx Flux S smart trainer in Zwift.
