@@ -57,8 +57,6 @@ There are no third-party packages. Everything is built on Apple frameworks and o
 | ActivityKit, WidgetKit and AppIntents | The lock screen and Dynamic Island widget, and its shift buttons |
 | AVFoundation and MediaPlayer | Shifting with the volume buttons |
 
-`TrainerCore` uses only Foundation, so its logic and tests run on a Mac without a phone or trainer.
-
 ## Building
 
 Open `App/TrainerCtrl.xcodeproj`, choose your iPhone, and run. The shifting, protocol and calibration logic is in the `TrainerCore` Swift package, which has its own tests:
