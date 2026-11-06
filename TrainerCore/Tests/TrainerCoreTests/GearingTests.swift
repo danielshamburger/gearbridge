@@ -188,12 +188,13 @@ struct ControlLoopHelperTests {
         do { let r = t.shouldSend(SimulationParameters(grade: 0.0512), at: 2); #expect(r) }
     }
 
-    @Test func forcedSendWaitsForIntervalButIsNotDropped() {
+    @Test func forcedSendSkipsTheInterval() {
         var t = CommandThrottle(minimumInterval: 0.25)
         let a = SimulationParameters(grade: 0.05)
+        let b = SimulationParameters(grade: 0.06)
         do { let r = t.shouldSend(a, at: 0); #expect(r) }
-        do { let r = t.shouldSend(a, at: 0.1, force: true); #expect(!r) }
-        do { let r = t.shouldSend(a, at: 0.3); #expect(r) }   // pending shift goes out even though unchanged
-        do { let r = t.shouldSend(a, at: 0.6); #expect(!r) }
+        do { let r = t.shouldSend(b, at: 0.1); #expect(!r) }               // routine: waits
+        do { let r = t.shouldSend(b, at: 0.1, force: true); #expect(r) }  // forced: now
+        do { let r = t.shouldSend(b, at: 0.2); #expect(!r) }               // and not again
     }
 }

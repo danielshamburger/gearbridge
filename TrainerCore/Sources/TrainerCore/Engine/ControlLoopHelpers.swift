@@ -38,7 +38,13 @@ public struct ExponentialSmoother: Sendable {
 
 /// Decides when a trainer command is worth sending: at most once per
 /// `minimumInterval`, and only when it differs from the last one sent.
-/// A forced send (after a shift) waits for the interval but is never dropped.
+///
+/// A forced send (a shift, or a new command from Zwift) goes out at once:
+/// `ControlPointQueue` already keeps one request in flight and coalesces the
+/// rest, and the Flux S takes ~0.26 s to answer each one, so spacing forced
+/// sends out as well only added delay (measured 2026-11-05: up to ~50 ms per
+/// shift on top of the queue wait). The interval still limits the routine
+/// re-sends driven by trainer data.
 public struct CommandThrottle: Sendable {
     public var minimumInterval: TimeInterval
     /// Smallest grade change worth sending, as a fraction (0.001 = 0.1 %).
@@ -65,7 +71,7 @@ public struct CommandThrottle: Sendable {
             record(q, time)
             return true
         }
-        guard time - lastTime >= minimumInterval else { return false }
+        guard force || time - lastTime >= minimumInterval else { return false }
 
         let changed = abs(q.grade - last.grade) > gradeThreshold
             || q.crr != last.crr

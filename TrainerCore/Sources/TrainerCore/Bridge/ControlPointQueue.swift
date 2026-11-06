@@ -16,7 +16,7 @@ public struct ControlPointQueue: Sendable {
     public private(set) var inFlight: InFlight?
 
     /// Short, because every shift waits behind an unanswered request.
-    public init(timeout: TimeInterval = 0.75) {
+    public init(timeout: TimeInterval = 1.0) {
         self.timeout = timeout
     }
 

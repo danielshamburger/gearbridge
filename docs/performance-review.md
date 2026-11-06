@@ -143,6 +143,18 @@ The KVO callback hops to the main actor with `Task { @MainActor … }` (`VolumeB
 - **The 1 Hz failure-handling tick:** cheap.
 - **Haptic generators:** prepared ahead of time, so they don't stall the first shift.
 
+## Measured on the Flux S (2026-11-05, first real ride)
+
+From a 5-minute ride log (simple shifting, no calibration):
+- **Control Point response:** median 0.26 s, 90th percentile 0.41 s, slowest 0.65 s. Every request is answered; none timed out.
+- **Shift to write:** median 0.10 s, 90th percentile 0.25 s, slowest 0.40 s. Shifts that came while a request was in flight waited for its response, then up to ~50 ms more for the throttle's 0.25 s spacing.
+
+Changes made from this:
+- Shifts and Zwift commands no longer wait for the throttle's spacing. The queue already allows one request in flight and coalesces the rest, so the trainer's own ~0.26 s turnaround is the limit. Routine re-sends from trainer data still use the 0.25 s spacing.
+- The queue timeout went from 0.75 s to 1.0 s, so a slow-but-valid answer (0.65 s seen) is never treated as lost.
+
+What's left is the trainer itself: about 0.26 s to accept a command, then however long the brake takes to change resistance. Neither is in the app's control.
+
 ## Measure on the real trainer
 
 - **Shift to write:** the `app>trainer` row now sits right before its `shift` event, so a well-behaved shift shows about 0 ms. Look for shifts with no write next to them: those were deferred by the throttle and should follow within about 0.27 s.

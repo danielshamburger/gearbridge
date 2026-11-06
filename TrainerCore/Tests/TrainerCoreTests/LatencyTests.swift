@@ -37,23 +37,41 @@ struct LatencyTests {
         #expect(grades(b.flush(at: 2.5)).isEmpty)
     }
 
-    @Test func shiftInsideThrottleWindowGoesOutViaFlush() {
+    // Measured on the Flux S: each Control Point request takes ~0.26 s to be
+    // answered, and the queue already holds one in flight and coalesces the
+    // rest. So shifts and Zwift commands skip the throttle's 0.25 s spacing.
+
+    @Test func shiftRightAfterASendGoesOutImmediately() {
         var b = bridge(calibrated)
         _ = b.handleTrainerData(data, at: 1.0)            // sends at 1.0
-        let (_, out) = b.shift(.up, at: 1.1)               // too soon: deferred
-        #expect(grades(out).isEmpty)
-        #expect(grades(b.flush(at: 1.2)).isEmpty)          // still inside the window
-        #expect(grades(b.flush(at: 1.25)).count == 1)      // out as soon as allowed
-        #expect(grades(b.flush(at: 1.3)).isEmpty)          // and only once
+        let (_, out) = b.shift(.up, at: 1.1)               // 0.1 s later: not held back
+        #expect(grades(out).count == 1)
+        #expect(grades(b.flush(at: 1.25)).isEmpty)         // nothing left over
     }
 
-    @Test func zwiftGradeInsideThrottleWindowGoesOutViaFlush() {
+    @Test func rapidShiftsEachGoOut() {
+        var b = bridge(calibrated)
+        _ = b.handleTrainerData(data, at: 1.0)
+        // Easier gears, so the grade stays clear of the trainer's 10 % cap.
+        let sent = (1...3).map { i in grades(b.shift(.down, at: 1.0 + Double(i) * 0.05).1) }
+        #expect(sent.allSatisfy { $0.count == 1 })
+        if sent.allSatisfy({ !$0.isEmpty }) { #expect(sent[0][0] > sent[1][0] && sent[1][0] > sent[2][0]) }
+    }
+
+    @Test func zwiftGradeRightAfterASendGoesOutImmediately() {
         var b = bridge(calibrated)
         _ = b.handleTrainerData(data, at: 1.0)
         var steeper = road
         steeper.grade = 0.06
-        #expect(grades(b.handleZwift(.setIndoorBikeSimulation(steeper), at: 1.05)).isEmpty)
-        #expect(grades(b.flush(at: 1.25)).count == 1)
+        #expect(grades(b.handleZwift(.setIndoorBikeSimulation(steeper), at: 1.05)).count == 1)
+    }
+
+    @Test func routineResendsStillWaitForTheInterval() {
+        var b = bridge(calibrated)
+        _ = b.handleTrainerData(data, at: 1.0)
+        var faster = data
+        faster.instantaneousSpeed = (data.instantaneousSpeed ?? 30) + 15
+        #expect(grades(b.handleTrainerData(faster, at: 1.1)).isEmpty)
     }
 
     @Test func flushIsQuietWhenNothingChanged() {
@@ -79,9 +97,11 @@ struct LatencyTests {
         let b = ControlPointRequest.setIndoorBikeSimulation(SimulationParameters(grade: 0.02))
         #expect(q.enqueue(a, at: 0) == a)
         #expect(q.enqueue(b, at: 0.5) == nil)               // a still in flight
-        #expect(q.checkTimeout(at: 0.75) == b)              // a given up on
+        // 1 s: the Flux S's slowest answer seen was 0.65 s (median 0.26 s).
+        #expect(q.checkTimeout(at: 0.99) == nil)
+        #expect(q.checkTimeout(at: 1.0) == b)               // a given up on
         // Enqueueing also notices a timed-out request, without waiting for the loop.
         let c = ControlPointRequest.setIndoorBikeSimulation(SimulationParameters(grade: 0.03))
-        #expect(q.enqueue(c, at: 1.6) == c)
+        #expect(q.enqueue(c, at: 2.0) == c)
     }
 }

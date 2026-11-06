@@ -63,14 +63,13 @@ struct ShiftingBridgeTests {
         #expect(out.isEmpty)
     }
 
-    @Test func quickShiftIsDeferredNotDropped() throws {
+    @Test func quickShiftGoesOutImmediately() throws {
         var b = try bridge()
         _ = b.handleZwift(.setIndoorBikeSimulation(road), at: 1)
-        let (_, out) = b.shift(.up, at: 1.1) // inside the 0.25 s throttle window
-        #expect(out.isEmpty)
-        let later = b.handleTrainerData(data, at: 1.4)
-        #expect(sentGrades(later).count == 1)
-        #expect(near(sentGrades(later)[0], 0.06, 1e-9))
+        let (_, out) = b.shift(.up, at: 1.1) // 0.1 s after the last send
+        #expect(sentGrades(out).count == 1)
+        #expect(near(sentGrades(out)[0], 0.06, 1e-9))
+        #expect(sentGrades(b.handleTrainerData(data, at: 1.4)).isEmpty) // not sent twice
     }
 
     @Test func steadyDataDoesNotResend() throws {
