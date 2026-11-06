@@ -212,6 +212,7 @@ final class BridgeController {
         peripheral.feature = BridgeCore.virtualFeature(copying: nil, reportsPower: reportsPower)
         resetCore()
         peripheral.onControlPointWrite = { [weak self] bytes in self?.handleZwiftWrite(bytes) }
+        peripheral.onLog = { [weak self] message in self?.record(.event, "zwift-ble", [], message) }
         peripheral.onChange = { [weak self] in
             guard let self else { return }
             self.zwiftState = self.peripheral.state

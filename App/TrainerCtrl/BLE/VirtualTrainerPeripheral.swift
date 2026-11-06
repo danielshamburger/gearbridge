@@ -19,6 +19,8 @@ final class VirtualTrainerPeripheral: NSObject {
     let name: String
     var onControlPointWrite: (@MainActor ([UInt8]) -> Void)?
     var onChange: (@MainActor () -> Void)?
+    /// Bluetooth-level activity (service added, advertising, reads, subscriptions), for the packet log.
+    var onLog: (@MainActor (String) -> Void)?
 
     var feature = BridgeCore.virtualFeature(copying: nil)
     var powerRange = BridgeCore.defaultPowerRange
@@ -162,17 +164,21 @@ extension VirtualTrainerPeripheral: @preconcurrency CBPeripheralManagerDelegate 
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
         if let error {
+            onLog?("add service failed: \(error.localizedDescription)")
             state = .failed("Adding service failed: \(error.localizedDescription)")
             return
         }
+        onLog?("service added")
         serviceAdded = true
         startAdvertising(peripheral)
     }
 
     func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
         if let error {
+            onLog?("advertising failed: \(error.localizedDescription)")
             state = .failed("Advertising failed: \(error.localizedDescription)")
         } else {
+            onLog?("advertising as \(name)")
             state = .advertising
         }
     }
@@ -182,6 +188,7 @@ extension VirtualTrainerPeripheral: @preconcurrency CBPeripheralManagerDelegate 
         central: CBCentral,
         didSubscribeTo characteristic: CBCharacteristic
     ) {
+        onLog?("subscribe \(characteristic.uuid.uuidString) by \(central.identifier.uuidString.prefix(8)) (max update \(central.maximumUpdateValueLength) B)")
         updateSubscriberCount()
     }
 
@@ -190,11 +197,15 @@ extension VirtualTrainerPeripheral: @preconcurrency CBPeripheralManagerDelegate 
         central: CBCentral,
         didUnsubscribeFrom characteristic: CBCharacteristic
     ) {
+        onLog?("unsubscribe \(characteristic.uuid.uuidString) by \(central.identifier.uuidString.prefix(8))")
         updateSubscriberCount()
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveRead request: CBATTRequest) {
-        guard let value = readValue(for: request.characteristic.uuid) else {
+        let value = readValue(for: request.characteristic.uuid)
+        onLog?("read \(request.characteristic.uuid.uuidString) by \(request.central.identifier.uuidString.prefix(8))"
+               + (value.map { " → " + $0.map { String(format: "%02X", $0) }.joined(separator: " ") } ?? " → not permitted"))
+        guard let value else {
             peripheral.respond(to: request, withResult: .readNotPermitted)
             return
         }
@@ -209,6 +220,7 @@ extension VirtualTrainerPeripheral: @preconcurrency CBPeripheralManagerDelegate 
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
         guard let first = requests.first else { return }
         guard requests.allSatisfy({ $0.characteristic.uuid == controlPoint.uuid }) else {
+            onLog?("write refused on \(first.characteristic.uuid.uuidString)")
             peripheral.respond(to: first, withResult: .writeNotPermitted)
             return
         }
