@@ -179,6 +179,7 @@ struct RideView: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 2)
             .padding(.bottom, 4)
+            .listRowSeparator(.hidden, edges: .bottom)   // gauges and slider read as one block
             if bridge.source == .mock {
                 VStack(alignment: .leading) {
                     Text("Mock cadence: \(Int(bridge.mockCadence)) rpm")
