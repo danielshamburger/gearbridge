@@ -152,16 +152,22 @@ struct RideView: View {
 
     private var liveSection: some View {
         Section {
-            HStack {
-                let data = bridge.latestData
-                Readout(title: "Power", value: data?.instantaneousPower.map { "\($0)" }, unit: "W",
-                        gauge: data?.instantaneousPower.map(Double.init), range: 0...bridge.powerGauge.upperBound, tint: .orange)
-                Readout(title: "Cadence", value: data?.instantaneousCadence.map { String(format: "%.0f", $0) }, unit: "rpm",
-                        gauge: data?.instantaneousCadence, range: 0...120, tint: .teal)
-                Readout(title: "Speed", value: data?.instantaneousSpeed.map { String(format: "%.1f", $0) }, unit: "km/h",
-                        gauge: data?.instantaneousSpeed, range: 0...bridge.speedGauge.upperBound, tint: .indigo)
+            let data = bridge.latestData
+            VStack(spacing: 12) {
+                GaugeReadout(title: "Power", value: data?.instantaneousPower.map { "\($0)" }, unit: "W",
+                             gauge: data?.instantaneousPower.map(Double.init), range: 0...bridge.powerGauge.upperBound,
+                             tint: .orange, size: 200, lineWidth: 14, valueSize: 60)
+                HStack(spacing: 24) {
+                    GaugeReadout(title: "Cadence", value: data?.instantaneousCadence.map { String(format: "%.0f", $0) }, unit: "rpm",
+                                 gauge: data?.instantaneousCadence, range: 0...120,
+                                 tint: .teal, size: 120, lineWidth: 9, valueSize: 32)
+                    GaugeReadout(title: "Speed", value: data?.instantaneousSpeed.map { String(format: "%.1f", $0) }, unit: "km/h",
+                                 gauge: data?.instantaneousSpeed, range: 0...bridge.speedGauge.upperBound,
+                                 tint: .indigo, size: 120, lineWidth: 9, valueSize: 32)
+                }
             }
-            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
             if bridge.debugMode {
                 LabeledContent("Zwift command", value: bridge.commandLabel)
                 if let grade = bridge.trainerGrade {
@@ -193,27 +199,40 @@ struct RideView: View {
     }
 }
 
-private struct Readout: View {
+/// A ring gauge with its number inside and its label in the gap at the bottom.
+private struct GaugeReadout: View {
     let title: String
     let value: String?
     let unit: String
     let gauge: Double?
     let range: ClosedRange<Double>
     let tint: Color
+    let size: CGFloat
+    let lineWidth: CGFloat
+    let valueSize: CGFloat
 
     var body: some View {
-        VStack(spacing: 2) {
-            ArcGauge(value: gauge, range: range, tint: tint)
-                .frame(width: 64, height: 64)
-                .padding(.bottom, 4)
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            Text(value ?? "–")
-                .font(.system(size: 36, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-            Text(unit).font(.caption2).foregroundStyle(.secondary)
+        ZStack {
+            ArcGauge(value: gauge, range: range, tint: tint, lineWidth: lineWidth)
+            VStack(spacing: 0) {
+                Text(value ?? "–")
+                    .font(.system(size: valueSize, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .contentTransition(.numericText())
+                Text(unit).font(.system(size: valueSize * 0.3)).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, lineWidth + 8)
+            // The ring's open gap is at the bottom: the label sits there.
+            Text(title)
+                .font(.system(size: max(valueSize * 0.28, 11), weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(maxHeight: .infinity, alignment: .bottom)
         }
-        .frame(maxWidth: .infinity)
+        .frame(width: size, height: size)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(value.map { "\($0) \(unit)" } ?? "no reading")
     }
 }
