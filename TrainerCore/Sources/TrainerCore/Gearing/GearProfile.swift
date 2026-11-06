@@ -135,6 +135,28 @@ public struct GearProfile: Equatable, Sendable, Identifiable {
         cassette: [10, 12, 14, 16, 18, 21, 24, 28, 32, 36, 42, 52]
     )
 
+    /// Id shared by every custom profile, so editing replaces the previous one.
+    public static let customID = UUID(uuidString: "00000000-0000-0000-0000-0000000000C0")!
+
+    /// The custom 1× profile built from the Gears screen: one chainring and a
+    /// cassette of `cogCount` cogs spaced evenly from `smallestCog` to `largestCog`.
+    public static func custom(
+        chainring: Int,
+        smallestCog: Int,
+        largestCog: Int,
+        cogCount: Int,
+        wheelCircumference: Double = 2.1
+    ) throws -> GearProfile {
+        let cogs = Drivetrain.cassette(smallest: smallestCog, largest: largestCog, count: cogCount)
+        return try .oneBy(
+            id: customID,
+            name: "1× \(chainring)T, \(cogs.first!)–\(cogs.last!)",
+            chainring: chainring,
+            cassette: cogs,
+            wheelCircumference: wheelCircumference
+        )
+    }
+
     /// Ready-made profiles. Fixed ids so a saved choice still matches after an update.
     public static let presets: [GearProfile] = [
         standard,

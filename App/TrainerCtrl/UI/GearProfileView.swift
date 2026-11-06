@@ -10,8 +10,7 @@ struct GearProfileView: View {
     @State private var largestCog = 52
     @State private var cogCount = 12
 
-    /// Custom profiles reuse one id so re-editing replaces the previous one.
-    static let customID = UUID(uuidString: "00000000-0000-0000-0000-0000000000C0")!
+    static var customID: UUID { GearProfile.customID }
 
     var body: some View {
         Form {
@@ -49,21 +48,24 @@ struct GearProfileView: View {
 
     private var customSection: some View {
         Section {
-            Picker("Chainring", selection: $chainring) {
+            Picker("Chainring", selection: applying($chainring)) {
                 ForEach(24...62, id: \.self) { Text("\($0)T").tag($0) }
             }
-            Picker("Smallest cog", selection: $smallestCog) {
+            Picker("Smallest cog", selection: applying($smallestCog) {
+                if largestCog <= smallestCog { largestCog = smallestCog + 1 }
+            }) {
                 ForEach(10...51, id: \.self) { Text("\($0)T").tag($0) }
             }
-            Picker("Largest cog", selection: $largestCog) {
+            Picker("Largest cog", selection: applying($largestCog) {
+                if smallestCog >= largestCog { smallestCog = largestCog - 1 }
+            }) {
                 ForEach(11...52, id: \.self) { Text("\($0)T").tag($0) }
             }
-            Stepper(value: $cogCount, in: 2...maxCogCount) {
+            Stepper(value: applying($cogCount), in: 2...maxCogCount) {
                 LabeledContent("Cogs", value: "\(min(cogCount, maxCogCount))")
             }
             LabeledContent("Cassette", value: customCogs.map(String.init).joined(separator: "-"))
                 .font(.footnote)
-            Button("Use these gears", action: applyCustom)
         } header: {
             HStack {
                 Text("Custom")
@@ -71,10 +73,21 @@ struct GearProfileView: View {
                 if bridge.profile.id == Self.customID { Image(systemName: "checkmark") }
             }
         } footer: {
-            Text("Cogs are spaced evenly between the smallest and largest, each step the same percentage harder.")
+            Text("Changes apply straight away, also mid-ride (you restart in the starting gear). Cogs are spaced evenly between the smallest and largest, each step the same percentage harder.")
         }
-        .onChange(of: smallestCog) { if largestCog <= smallestCog { largestCog = smallestCog + 1 } }
-        .onChange(of: largestCog) { if smallestCog >= largestCog { smallestCog = largestCog - 1 } }
+    }
+
+    /// A binding that applies the custom gears whenever the user changes it.
+    /// Only user edits go through here; `loadTeeth` sets the state directly, so
+    /// picking a preset doesn't get overwritten by a custom copy of itself.
+    private func applying(_ value: Binding<Int>, then adjust: @escaping () -> Void = {}) -> Binding<Int> {
+        Binding {
+            value.wrappedValue
+        } set: { newValue in
+            value.wrappedValue = newValue
+            adjust()
+            applyCustom()
+        }
     }
 
     private var startingGearSection: some View {
@@ -147,14 +160,14 @@ struct GearProfileView: View {
     }
 
     private func applyCustom() {
-        let cogs = customCogs
-        guard let profile = try? GearProfile.oneBy(
-            id: Self.customID,
-            name: "1× \(chainring)T, \(cogs.first!)–\(cogs.last!)",
+        if let profile = try? GearProfile.custom(
             chainring: chainring,
-            cassette: cogs,
+            smallestCog: smallestCog,
+            largestCog: largestCog,
+            cogCount: cogCount,
             wheelCircumference: bridge.profile.wheelCircumference
-        ) else { return }
-        bridge.profile = profile
+        ) {
+            bridge.profile = profile
+        }
     }
 }

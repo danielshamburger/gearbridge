@@ -166,6 +166,7 @@ struct RideView: View {
                     .foregroundStyle(.orange)
             }
             LabeledContent("Trainer", value: bridge.trainerState.label)
+            LabeledContent("Real gear", value: "\(bridge.rider.realChainring)×\(bridge.rider.realCog)")
             LabeledContent("Zwift", value: bridge.zwiftLabel)
             if bridge.source == .mock {
                 VStack(alignment: .leading) {
