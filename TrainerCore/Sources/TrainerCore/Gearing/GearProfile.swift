@@ -132,7 +132,7 @@ public struct GearProfile: Equatable, Sendable, Identifiable {
         id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
         name: "1× 42T, 10–52",
         chainring: 42,
-        cassette: [10, 12, 14, 16, 18, 21, 24, 28, 32, 36, 42, 52]
+        cassette: [10, 12, 14, 16, 18, 21, 24, 28, 32, 36, 42, 52]   // SRAM Eagle 12-speed
     )
 
     /// Id shared by every custom profile, so editing replaces the previous one.
@@ -157,26 +157,27 @@ public struct GearProfile: Equatable, Sendable, Identifiable {
         )
     }
 
-    /// Ready-made profiles. Fixed ids so a saved choice still matches after an update.
+    /// Ready-made profiles, all SRAM 12-speed cassettes. Fixed ids so a saved
+    /// choice still matches after an update.
     public static let presets: [GearProfile] = [
         standard,
         try! .oneBy(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000004")!,
-            name: "1× 40T, 11–42",
+            name: "1× 40T, 10–50",
             chainring: 40,
-            cassette: [11, 13, 15, 17, 19, 21, 24, 28, 32, 36, 42]
+            cassette: [10, 12, 14, 16, 18, 21, 24, 28, 32, 36, 42, 50]   // SRAM Eagle 12-speed
         ),
         try! .oneBy(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000005")!,
             name: "1× 44T, 10–44",
             chainring: 44,
-            cassette: [10, 11, 13, 15, 17, 19, 21, 24, 28, 32, 38, 44]
+            cassette: [10, 11, 13, 15, 17, 19, 21, 24, 28, 32, 38, 44]   // SRAM XPLR 12-speed
         ),
         try! .oneBy(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000006")!,
             name: "1× 46T, 10–36",
             chainring: 46,
-            cassette: [10, 11, 12, 13, 15, 17, 19, 21, 24, 28, 32, 36]
+            cassette: [10, 11, 12, 13, 15, 17, 19, 21, 24, 28, 32, 36]   // SRAM road 12-speed
         ),
         try! .oneBy(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000007")!,

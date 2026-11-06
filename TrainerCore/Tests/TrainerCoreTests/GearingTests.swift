@@ -49,7 +49,8 @@ struct GearProfileTests {
     @Test func presetsAreValidAndDistinct() {
         #expect(GearProfile.presets.count == 5)
         #expect(Set(GearProfile.presets.map(\.id)).count == 5)
-        #expect(GearProfile.presets.contains { $0.name == "1× 50T, 10–44" && $0.gearCount == 12 })
+        #expect(GearProfile.presets.contains { $0.name == "1× 50T, 10–44" })
+        #expect(GearProfile.presets.allSatisfy { $0.gearCount == 12 })   // all SRAM 12-speed
         #expect(GearProfile.presets.allSatisfy { $0.drivetrain != nil && $0.startingGearIndex == nil })
     }
 
