@@ -180,6 +180,7 @@ struct RideView: View {
                     .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
             }
             gaugesCard(scale: scale)
+            if bridge.source == .mock { mockCard }
             if bridge.debugMode { debugCard }
         }
         .padding(.horizontal, 16)
@@ -206,15 +207,20 @@ struct RideView: View {
                              gauge: data?.instantaneousSpeed, range: 0...bridge.speedGauge.upperBound,
                              tint: .indigo, size: 120 * scale, lineWidth: 9 * scale, valueSize: 32 * scale)
             }
-            if bridge.source == .mock {
-                HStack(spacing: 10) {
-                    Text("Cadence").font(.subheadline).foregroundStyle(.secondary)
-                    CadenceSlider(cadence: $bridge.mockCadence)
-                }
-            }
         }
         .frame(maxWidth: .infinity)
         .padding(16)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    /// The mock rider's control, in its own card: it's an input, not a readout.
+    private var mockCard: some View {
+        HStack(spacing: 12) {
+            Text("Cadence").font(.subheadline).foregroundStyle(.secondary)
+            CadenceSlider(cadence: $bridge.mockCadence)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
     }
 
