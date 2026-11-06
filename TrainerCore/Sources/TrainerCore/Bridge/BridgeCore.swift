@@ -238,6 +238,16 @@ public struct BridgeCore: Sendable {
         return outputs
     }
 
+    /// Call often (the app uses 50 Hz). Sends a deferred command as soon as the
+    /// throttle allows, e.g. a shift that came within `minimumInterval` of the
+    /// previous send, instead of waiting for the next trainer data packet.
+    /// Does nothing without an engine, in ERG, or during an override.
+    public mutating func flush(at time: TimeInterval) -> [Output] {
+        guard engine != nil, trainerOverride == nil else { return [] }
+        if case .targetPower = zwiftMode { return [] }
+        return commandTrainer(at: time, force: false)
+    }
+
     // MARK: Failure handling
 
     /// Zwift subscribed to or left the virtual trainer.

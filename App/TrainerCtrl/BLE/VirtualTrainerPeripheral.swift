@@ -91,6 +91,11 @@ final class VirtualTrainerPeripheral: NSObject {
             return
         }
         // Transmit queue full: retry in peripheralManagerIsReady(toUpdateSubscribers:).
+        // Only the newest bike data matters; a backlog would reach Zwift late.
+        // Control Point responses and status stay queued in order.
+        if characteristic === indoorBikeData {
+            pending.removeAll { $0.1 === indoorBikeData }
+        }
         if pending.count >= maxPending { pending.removeFirst() }
         pending.append((data, characteristic))
     }

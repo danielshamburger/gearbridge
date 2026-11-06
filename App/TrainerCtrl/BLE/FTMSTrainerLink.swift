@@ -98,7 +98,7 @@ final class FTMSTrainerLink: NSObject, TrainerLink {
         timeoutTask?.cancel()
         timeoutTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(500))
+                try? await Task.sleep(for: .milliseconds(100))
                 guard let self else { return }
                 if let next = self.queue.checkTimeout(at: self.now) { self.write(next) }
             }

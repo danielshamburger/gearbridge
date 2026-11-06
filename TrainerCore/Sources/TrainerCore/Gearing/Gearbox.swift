@@ -1,7 +1,8 @@
 import Foundation
 
-/// The current virtual gear. Shifts ramp the effective ratio linearly over
-/// `rampDuration` so resistance changes feel like a chain moving, not a step.
+/// The current virtual gear. Shifts can ramp the effective ratio linearly over
+/// `rampDuration`; the default is no ramp, so the command sent at the moment of
+/// a shift already uses the new gear (the trainer's brake smooths the step).
 ///
 /// Time is a caller-supplied monotonic clock in seconds, which keeps this testable.
 public struct Gearbox: Sendable {
@@ -26,7 +27,7 @@ public struct Gearbox: Sendable {
     private var rampStart: TimeInterval?
 
     /// Starts in `startingGearIndex`, else the profile's starting gear, else the middle gear.
-    public init(profile: GearProfile, startingGearIndex: Int? = nil, rampDuration: TimeInterval = 0.25) {
+    public init(profile: GearProfile, startingGearIndex: Int? = nil, rampDuration: TimeInterval = 0) {
         let start = Self.clampedStart(startingGearIndex ?? profile.startingGearIndex, in: profile)
         self.profile = profile
         self.gearIndex = start

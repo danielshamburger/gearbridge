@@ -15,12 +15,14 @@ public struct ControlPointQueue: Sendable {
     public private(set) var waiting: [ControlPointRequest] = []
     public private(set) var inFlight: InFlight?
 
-    public init(timeout: TimeInterval = 2) {
+    /// Short, because every shift waits behind an unanswered request.
+    public init(timeout: TimeInterval = 0.75) {
         self.timeout = timeout
     }
 
     /// Adds a request. Returns it if it should be written now.
     public mutating func enqueue(_ request: ControlPointRequest, at time: TimeInterval) -> ControlPointRequest? {
+        if let current = inFlight, time - current.sentAt >= timeout { inFlight = nil }
         if Self.isCoalescable(request), let i = waiting.firstIndex(where: { $0.opcode == request.opcode }) {
             waiting[i] = request
         } else {

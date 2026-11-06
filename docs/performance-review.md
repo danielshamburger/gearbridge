@@ -4,6 +4,8 @@ Goal: a shift, or a grade change from Zwift, should reach the trainer as fast as
 
 This review reads the code paths. I haven't measured on a real Flux S yet. Findings 1 and 2 were confirmed with a probe test against `TrainerCore`.
 
+**Status:** findings 1–5 and 9 are fixed, each covered by `LatencyTests`. The rest are still open.
+
 ## The paths that matter
 
 | Path | Route |
@@ -16,7 +18,7 @@ Everything runs on the main thread: both CoreBluetooth managers use `queue: nil`
 
 ## Findings, worst first
 
-### 1. In calibrated mode, a shift's first command still uses the old gear (high)
+### 1. ✅ Fixed. In calibrated mode, a shift's first command still used the old gear (high)
 
 `ShiftingEngine.command` uses `gearbox.ratio(at: time)` (`ShiftingEngine.swift:86`). At the moment of a shift, the 0.25 s ramp hasn't started, so the ratio is still the old gear's (`Gearbox.swift:55`). The force-scaling strategy works from that ratio, so the command sent on the shift carries the **old** resistance. The new gear only reaches the trainer on later trainer data packets as the ramp moves forward.
 
@@ -28,7 +30,9 @@ At a 1–4 Hz data rate, the full gear change lands about 0.25–1 s or more aft
 - Drop the ramp, or make it much shorter (e.g. 0.1 s). The trainer's own brake response already smooths the change.
 - Drive the ramp from a timer, independent of trainer data. See finding 3.
 
-### 2. A shift within 0.25 s of the last send waits for the next trainer data packet (high)
+**Done:** the ramp now defaults to 0, so the command sent on a shift is final. `Gearbox` still supports a ramp if one is wanted later.
+
+### 2. ✅ Fixed. A shift within 0.25 s of the last send waited for the next trainer data packet (high)
 
 `CommandThrottle.shouldSend` refuses any send within `minimumInterval` (`ControlLoopHelpers.swift:68`). A forced send only sets `pending`, and pending sends are only retried when `handleTrainerData` runs. So a shift (or a new grade from Zwift) that comes within 0.25 s of a data-triggered send waits for the **next data packet**: up to 1 s at 1 Hz.
 
@@ -42,13 +46,17 @@ In the sim modes there's usually a send on every data packet, so a large share o
 
 The worst case then becomes 0.25 s instead of one data period. Also consider lowering `minimumInterval` once the Flux S's acceptable command rate is measured (plan step 7).
 
-### 3. The engine only runs when trainer data arrives (medium)
+**Done:** added `BridgeCore.flush(at:)`, called by a 50 Hz control loop while riding. A deferred command now goes out within 20 ms of the throttle allowing it. Lowering `minimumInterval` is still open.
+
+### 3. ✅ Fixed. The engine only ran when trainer data arrived (medium)
 
 Speed smoothing, ramps and pending sends all advance only in `handleTrainerData`. The trainer's data rate therefore sets the bridge's reaction time.
 
 **Fix:** a 20–50 Hz control tick while riding, which calls `core.flush(at:)`. Most ticks would do nothing, because the throttle drops unchanged commands. This also fixes the stalled ramp in finding 1 and the wait in finding 2.
 
-### 4. A Control Point request the trainer never answers blocks the queue for up to 2.5 s (medium)
+**Done:** the 50 Hz loop in `BridgeController.startControlLoop`. It stops at the end of a ride.
+
+### 4. ✅ Fixed. A Control Point request the trainer never answered blocked the queue for up to 2.5 s (medium)
 
 FTMS allows one request in flight. `ControlPointQueue` waits up to 2 s for a response (`ControlPointQueue.swift:18`), and the timeout is only checked every 500 ms (`FTMSTrainerLink.swift:101`). If the Flux S drops one response, every shift and grade change waits behind it.
 
@@ -56,13 +64,19 @@ FTMS allows one request in flight. `ControlPointQueue` waits up to 2 s for a res
 - Cut the timeout to about 0.5–0.75 s. Measure the Flux S's normal response time first; the log has both send and response times.
 - Check the timeout when something is enqueued, as well as in the loop.
 
-### 5. A backed-up Zwift transmit queue delivers stale data (medium)
+**Done:**
+- The timeout is now 0.75 s, checked on every enqueue and every 100 ms.
+- Still to do: confirm against the Flux S's measured response time, and raise the timeout if its normal responses come close to 0.75 s.
+
+### 5. ✅ Fixed. A backed-up Zwift transmit queue delivered stale data (medium)
 
 When `updateValue` fails because the transmit queue is full, `VirtualTrainerPeripheral.send` appends the packet to `pending`, up to 50 (`VirtualTrainerPeripheral.swift:34`, `:95`). Indoor bike data then reaches Zwift in order, oldest first. With 50 queued at 4 Hz, that is up to about 12 s behind, and Zwift shows old power and cadence.
 
 **Fix:**
 - Keep only the newest packet for notify-only characteristics: indoor bike data and status.
 - Keep Control Point indications in order, since Zwift needs every response.
+
+**Done:** only the newest bike data packet waits in the queue. Responses and status stay in order.
 
 ### 6. Exporting the log blocks the main thread (medium, only if used mid-ride)
 
@@ -96,11 +110,13 @@ Usually that's a few ms, but sheet presentations can take 50–100 ms.
 
 This is the biggest change here. Do it after the fixes above, and only if measurement shows main-thread stalls.
 
-### 9. Shift order: haptic and log run before the Bluetooth write (low)
+### 9. ✅ Fixed. Shift order: the haptic and log ran before the Bluetooth write (low)
 
 `BridgeController.shift` fires the haptic (`:279`) and formats a log line before `perform(outputs)` (`:288`). Both are fast; the generator is prepared. Still, the write should go first.
 
 **Fix:** call `perform(outputs)` first, then haptics, logging and UI state.
+
+**Done.** As a result, the `app>trainer` write now appears in the log just *before* its `shift` event.
 
 ### 10. Every data packet re-renders the ride screen (low)
 
@@ -129,14 +145,15 @@ The KVO callback hops to the main actor with `Task { @MainActor … }` (`VolumeB
 
 ## Measure on the real trainer
 
-- **Shift to write:** time from a `shift` event to the next `app>trainer` row in the packet log. Target: under 20 ms, apart from the deliberate 0.25 s throttle.
+- **Shift to write:** the `app>trainer` row now sits right before its `shift` event, so a well-behaved shift shows about 0 ms. Look for shifts with no write next to them: those were deferred by the throttle and should follow within about 0.27 s.
 - **Write to response:** time from an `app>trainer` write to its `trainer>app` response. This sets the queue timeout in finding 4.
 - **Data rate:** how often indoor bike data arrives from the Flux S. This sets how bad findings 1–3 are today.
 - **Main-thread stalls:** an Instruments "Hangs" or Time Profiler trace during a ride, with Settings opened and closed.
 
 ## Suggested order
 
-1. Findings 1–3 together: a timer-driven control tick plus `core.flush(at:)`, and a shorter or timer-driven ramp. This removes the largest delays.
-2. Findings 4 and 5: queue timeout and stale-data coalescing.
-3. Findings 6, 7, 9 and 10: cheap clean-ups.
-4. Finding 8, only if measurement shows main-thread stalls.
+1. ~~Findings 1–3~~ done.
+2. ~~Findings 4 and 5~~ done.
+3. Findings 6, 7 and 10: cheap clean-ups. (Finding 9 is done.)
+4. Finding 11: tune speed smoothing once the Flux S's speed noise is known.
+5. Finding 8, only if measurement shows main-thread stalls.

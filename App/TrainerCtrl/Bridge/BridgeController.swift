@@ -164,6 +164,7 @@ final class BridgeController {
     @ObservationIgnored private let haptics = ShiftHaptics()
     @ObservationIgnored private let clockStart = ContinuousClock.now
     @ObservationIgnored private var tickTask: Task<Void, Never>?
+    @ObservationIgnored private var controlTask: Task<Void, Never>?
 
     private enum Keys {
         static let virtualShifting = "virtualShifting"
@@ -237,6 +238,7 @@ final class BridgeController {
         peripheral.start()
         connectTrainer()
         startTicking()
+        startControlLoop()
     }
 
     /// Disconnects the trainer and stops advertising. The log is kept for export.
@@ -246,6 +248,8 @@ final class BridgeController {
         calibrationRun = nil
         tickTask?.cancel()
         tickTask = nil
+        controlTask?.cancel()
+        controlTask = nil
         link?.onEvent = nil
         link?.stop()
         link = nil
@@ -273,6 +277,7 @@ final class BridgeController {
 
     func shift(_ direction: Gearbox.Direction) {
         let (outcome, outputs) = core.shift(direction, at: now)
+        perform(outputs) // the trainer first; haptics, log and UI after
         lastShift = ShiftEvent(outcome: outcome, serial: (lastShift?.serial ?? 0) + 1)
         switch outcome {
         case .shifted(let index):
@@ -285,7 +290,6 @@ final class BridgeController {
         case .ignoredInERG, .disabled, .overridden:
             haptics.blocked()
         }
-        perform(outputs)
         refreshShiftState()
     }
 
@@ -341,6 +345,25 @@ final class BridgeController {
         let command = core.lastEngineCommand
         trainerGrade = command?.parameters.grade
         limit = command?.limit ?? .none
+    }
+
+    // MARK: Control loop
+
+    /// 50 Hz while riding: sends a command the throttle deferred (a shift or
+    /// Zwift grade within 0.25 s of the last send) as soon as it's allowed,
+    /// rather than at the next trainer data packet. Usually does nothing.
+    private func startControlLoop() {
+        controlTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(20))
+                guard let self else { return }
+                let outputs = self.core.flush(at: self.now)
+                if !outputs.isEmpty {
+                    self.perform(outputs)
+                    self.refreshShiftState()
+                }
+            }
+        }
     }
 
     // MARK: Failure handling
