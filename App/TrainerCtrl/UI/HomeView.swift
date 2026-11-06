@@ -64,14 +64,15 @@ struct HomeView: View {
     /// an angle for some depth.
     private var bridgeBackdrop: some View {
         GeometryReader { geo in
-            // Turned 40° so it recedes to the right: the near tower stands
+            // Turned 55° so it recedes to the right: the near tower stands
             // taller, the far one smaller. Drawn ~12% shorter than the space
             // so the near tower, enlarged by the perspective, stays inside it.
             let height = min(geo.size.height - 8, 150) * 0.88
             if height > 55 {
                 SuspensionBridgeArt()
-                    .frame(width: (geo.size.width + 48) * 1.65, height: height)
-                    .rotation3DEffect(.degrees(40), axis: (x: 0, y: 1, z: 0), perspective: 0.7)
+                    // Extra wide: at this angle a narrower drawing ends short of the edge.
+                    .frame(width: (geo.size.width + 48) * 2.3, height: height)
+                    .rotation3DEffect(.degrees(55), axis: (x: 0, y: 1, z: 0), perspective: 0.7)
                     .position(x: geo.size.width / 2, y: geo.size.height - height / 2)
             }
         }
