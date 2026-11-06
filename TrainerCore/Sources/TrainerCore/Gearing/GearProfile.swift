@@ -185,6 +185,12 @@ public struct GearProfile: Equatable, Sendable, Identifiable {
             chainring: 50,
             cassette: [10, 11, 13, 15, 17, 19, 21, 24, 28, 32, 38, 44]   // SRAM XPLR 12-speed
         ),
+        try! .oneBy(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000008")!,
+            name: "1× 53T, 10–33",
+            chainring: 53,
+            cassette: [10, 11, 12, 13, 14, 15, 17, 19, 21, 24, 28, 33]   // SRAM road 12-speed
+        ),
     ]
 }
 
