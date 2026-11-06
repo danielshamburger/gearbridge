@@ -1,8 +1,8 @@
 import Foundation
 
-/// Maps a slider position (0…1) to cadence non-linearly. By default the
-/// cadences people ride at (60–100 rpm) get 70 % of the track, while 0–60 and
-/// 100–120 go by quickly.
+/// Maps a slider position (0…1) to cadence non-linearly. By default 0–60 rpm
+/// takes only the first 8 % of the track, the cadences people ride at
+/// (60–100 rpm) get 77 %, and 100–120 the last 15 %.
 ///
 /// The curve passes through `points` and is a monotone cubic (Fritsch–Butland
 /// tangents), so the slider's sensitivity changes smoothly between the ranges
@@ -15,7 +15,7 @@ public struct CadenceScale: Equatable, Sendable {
         a.points.elementsEqual(b.points) { $0 == $1 }
     }
 
-    public init(points: [(position: Double, cadence: Double)] = [(0, 0), (0.15, 60), (0.85, 100), (1, 120)]) {
+    public init(points: [(position: Double, cadence: Double)] = [(0, 0), (0.08, 60), (0.85, 100), (1, 120)]) {
         self.points = points
     }
 

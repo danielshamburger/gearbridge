@@ -207,8 +207,8 @@ struct RideView: View {
                              tint: .indigo, size: 120 * scale, lineWidth: 9 * scale, valueSize: 32 * scale)
             }
             if bridge.source == .mock {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Mock cadence: \(Int(bridge.mockCadence)) rpm").font(.subheadline)
+                HStack(spacing: 10) {
+                    Text("Cadence").font(.subheadline).foregroundStyle(.secondary)
                     CadenceSlider(cadence: $bridge.mockCadence)
                 }
             }

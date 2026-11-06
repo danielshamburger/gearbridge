@@ -2,7 +2,7 @@ import SwiftUI
 import TrainerCore
 
 /// The mock rider's cadence slider, 0–120 rpm. Non-linear (see `CadenceScale`):
-/// 60–100 rpm takes 70 % of the track; 0–60 and 100–120 go by quickly.
+/// 0–60 rpm flies by in the first 8 % of the track; 60–100 rpm gets most of it.
 struct CadenceSlider: View {
     @Binding var cadence: Double
     private let scale = CadenceScale()
