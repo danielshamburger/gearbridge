@@ -117,7 +117,7 @@ struct HomeView: View {
 
     private var summaryRows: [SummaryRow.Item] {
         var rows: [SummaryRow.Item] = [
-            .init(page: .trainer, value: bridge.source.name,
+            .init(page: .trainer, value: bridge.trainerName,
                   hint: bridge.source == .bluetooth
                       ? readiness(bridge.lastTrainerConnection, "Connected", never: "Not connected yet") : nil),
             .init(page: .zwift, value: bridge.lastZwiftConnection == nil ? "Not paired" : "Paired",

@@ -35,7 +35,7 @@ struct RideView: View {
 
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: 6) {
-                        StatusPill(symbol: "dot.radiowaves.left.and.right", title: bridge.source.name,
+                        StatusPill(symbol: "dot.radiowaves.left.and.right", title: bridge.trainerName,
                                    detail: bridge.trainerState.label, health: trainerHealth)
                         StatusPill(symbol: "display", title: "Zwift",
                                    detail: bridge.zwiftLabel, health: zwiftHealth)
@@ -347,7 +347,10 @@ private struct StatusPill: View {
             HStack(spacing: 4) {
                 Circle().fill(color).frame(width: 7, height: 7)
                 Image(systemName: symbol).imageScale(.small)
-                Text(title)
+                // A long Bluetooth name ends in "…" rather than crowding the bar.
+                WidthCap(maximum: 110) {
+                    Text(title).lineLimit(1).truncationMode(.tail)
+                }
             }
             .font(.caption.weight(.medium))
             .foregroundStyle(.primary)
@@ -452,5 +455,20 @@ private struct ShiftButtonStyle: ButtonStyle {
             .scaleEffect(pressed ? 0.97 : 1)
             .opacity(isEnabled ? 1 : 0.4)
             .animation(.easeOut(duration: 0.1), value: pressed)
+    }
+}
+
+/// Lays its content out at its natural width, up to `maximum`. Unlike
+/// `.frame(maxWidth:)`, it doesn't stretch short content to the maximum.
+private struct WidthCap: Layout {
+    let maximum: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = min(proposal.width ?? maximum, maximum)
+        return subviews.first?.sizeThatFits(ProposedViewSize(width: width, height: proposal.height)) ?? .zero
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
     }
 }

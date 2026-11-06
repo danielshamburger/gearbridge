@@ -20,15 +20,17 @@ struct SavedCalibration: Codable, Equatable {
 }
 
 enum TrainerSource: String, CaseIterable, Identifiable {
+    // The raw values are what's saved, so they stay as they were.
     case bluetooth = "Flux S"
-    case mock = "Mock" // the stored value; shown as "Simulate"
+    case mock = "Mock"
 
     var id: Self { self }
 
-    /// What the app calls it.
+    /// The choice in Settings. The trainer itself goes by its Bluetooth name
+    /// (`BridgeController.trainerName`).
     var name: String {
         switch self {
-        case .bluetooth: "Flux S"
+        case .bluetooth: "Bluetooth"
         case .mock: "Simulate"
         }
     }
@@ -67,6 +69,18 @@ final class BridgeController {
     /// "ready" hints. Saved across launches.
     private(set) var lastTrainerConnection: Date? {
         didSet { UserDefaults.standard.set(lastTrainerConnection, forKey: Keys.lastTrainerConnection) }
+    }
+    /// The real trainer's Bluetooth name, from its last connection. Saved.
+    private(set) var trainerBluetoothName: String? {
+        didSet { UserDefaults.standard.set(trainerBluetoothName, forKey: Keys.trainerBluetoothName) }
+    }
+    /// What to call the trainer: its Bluetooth name (once it has connected),
+    /// or "Simulate".
+    var trainerName: String {
+        switch source {
+        case .bluetooth: trainerBluetoothName ?? "Trainer"
+        case .mock: TrainerSource.mock.name
+        }
     }
     private(set) var lastZwiftConnection: Date? {
         didSet { UserDefaults.standard.set(lastZwiftConnection, forKey: Keys.lastZwiftConnection) }
@@ -224,6 +238,7 @@ final class BridgeController {
         static let debugMode = "debugMode"
         static let lastTrainerConnection = "lastTrainerConnection"
         static let lastZwiftConnection = "lastZwiftConnection"
+        static let trainerBluetoothName = "trainerBluetoothName"
         static let speedUnit = "speedUnit"
         static let source = "trainerSource"
         static let shiftingModel = "shiftingModel"
@@ -252,6 +267,7 @@ final class BridgeController {
         source = defaults.string(forKey: Keys.source).flatMap(TrainerSource.init) ?? .bluetooth
         lastTrainerConnection = defaults.object(forKey: Keys.lastTrainerConnection) as? Date
         lastZwiftConnection = defaults.object(forKey: Keys.lastZwiftConnection) as? Date
+        trainerBluetoothName = defaults.string(forKey: Keys.trainerBluetoothName)
         defaults.register(defaults: [
             Keys.virtualShifting: true,
             Keys.reportsPower: true,
@@ -614,7 +630,11 @@ final class BridgeController {
         switch event {
         case .state(let state):
             trainerState = state
-            if state.isConnected, source == .bluetooth { lastTrainerConnection = Date() }
+            if case .connected(let name) = state, source == .bluetooth {
+                lastTrainerConnection = Date()
+                // "trainer" is the link's stand-in when the trainer gives no name.
+                if name != "trainer" { trainerBluetoothName = name }
+            }
             if !state.isConnected { core.trainerDidDisconnect() }
             record(.event, "trainerState", [], state.label)
         case .ready:

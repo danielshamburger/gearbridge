@@ -96,7 +96,7 @@ struct SettingsList: View {
     var body: some View {
         List {
             Section {
-                row(.trainer, value: "\(bridge.source.name) · \(bridge.rider.realChainring)×\(bridge.rider.realCog)")
+                row(.trainer, value: "\(bridge.trainerName) · \(bridge.rider.realChainring)×\(bridge.rider.realCog)")
                 row(.zwift, value: bridge.reportsPower ? nil : "Power off")
             }
             Section {
@@ -155,12 +155,15 @@ private struct TrainerSettings: View {
                     ForEach(TrainerSource.allCases) { Text($0.name).tag($0) }
                 }
                 .pickerStyle(.segmented)
+                if bridge.source == .bluetooth {
+                    LabeledContent("Trainer", value: bridge.trainerBluetoothName ?? "Not connected yet")
+                }
                 LabeledContent("Status", value: bridge.isRiding ? bridge.trainerState.label : "Connects when you start a ride")
                 if let last = bridge.lastTrainerConnection {
                     LabeledContent("Last connected", value: last.formatted(date: .abbreviated, time: .shortened))
                 }
             } footer: {
-                Text("Simulate is a pretend trainer for trying the app without the bike. Choosing it turns on debug mode; switching back turns it off.")
+                Text("Bluetooth connects to your smart trainer and remembers it. Simulate is a pretend trainer for trying the app without the bike. Choosing it turns on debug mode; switching back turns it off.")
             }
             Section {
                 Stepper(value: $bridge.rider.realChainring, in: 20...60) {
