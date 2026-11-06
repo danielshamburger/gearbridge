@@ -2,7 +2,7 @@
 
 # TrainerCtrl
 
-An iPhone app that adds virtual shifting to a Tacx Flux S smart trainer in Zwift.
+An iPhone app that adds virtual shifting to a [Tacx Flux S](https://www.garmin.com/en-US/p/690888/) smart trainer in [Zwift](https://www.zwift.com/).
 
 The phone sits between the trainer and Zwift. It connects to the trainer over Bluetooth and shows up in Zwift as a trainer named **TrainerCtrl**. When you shift, it changes the resistance it sends to the trainer, so the bike feels like it has a full set of gears. The chain stays in one cog the whole ride.
 
@@ -26,7 +26,21 @@ Tacx Flux S  ──BLE (FTMS)──▶  TrainerCtrl (iPhone)  ──BLE (FTMS)�
 
 - iPhone with iOS 17 or later
 - Xcode 16 or later (Swift 6)
-- Tacx Flux S (or another FTMS trainer) and Zwift on a Mac
+- [Tacx Flux S](https://www.garmin.com/en-US/p/690888/) (or another FTMS trainer) and [Zwift](https://www.zwift.com/) on a Mac
+
+## Dependencies
+
+There are no third-party packages. Everything is built on Apple frameworks and one open Bluetooth standard:
+
+| Dependency | Used for |
+|---|---|
+| [Bluetooth Fitness Machine Service (FTMS)](https://www.bluetooth.com/specifications/specs/fitness-machine-service-1-0/) | The protocol on both sides: reading the trainer and setting its resistance, and acting as a trainer for Zwift |
+| CoreBluetooth | Connecting to the trainer (central) and advertising to Zwift (peripheral) |
+| SwiftUI and Observation | All screens and app state |
+| ActivityKit, WidgetKit and AppIntents | The lock screen and Dynamic Island widget, and its shift buttons |
+| AVFoundation and MediaPlayer | Shifting with the volume buttons |
+
+`TrainerCore` uses only Foundation, so its logic and tests run on a Mac without a phone or trainer.
 
 ## Building
 
