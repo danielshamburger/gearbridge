@@ -159,6 +159,9 @@ struct RideView: View {
                         Text(limitMessage)
                             .font(.caption2.weight(.bold))
                             .tracking(0.8)
+                            .lineLimit(1)
+                            // Its own width, not the narrow gear number it sits on
+                            .fixedSize()
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
                             .background(.red, in: Capsule())
