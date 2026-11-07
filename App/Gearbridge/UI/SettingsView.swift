@@ -104,7 +104,7 @@ struct SettingsList: View {
                 row(.shifting, value: bridge.virtualShifting ? bridge.activeModel.rawValue : "Off")
             }
             Section {
-                row(.display, value: bridge.speedUnit.label)
+                row(.display, value: "\(bridge.speedUnit.label) · \(bridge.powerAveraging.shortName)")
                 row(.diagnostics, value: bridge.debugMode ? "Debug on" : nil)
             }
         }
@@ -278,6 +278,16 @@ private struct DisplaySettings: View {
                 .pickerStyle(.segmented)
             } header: {
                 Text("Units")
+            }
+            Section {
+                Picker("Power", selection: $bridge.powerAveraging) {
+                    ForEach(PowerAveraging.allCases) { Text($0.name).tag($0) }
+                }
+                .pickerStyle(.segmented)
+            } header: {
+                Text("Power readout")
+            } footer: {
+                Text("How the power number and gauge are smoothed. Zwift always gets the trainer's instant power.")
             }
             Section {
                 Toggle("Dim screen while riding", isOn: $bridge.dimWhileRiding)

@@ -164,6 +164,24 @@ final class BridgeController {
         }
     }
 
+    /// How the power readout is smoothed (instant, 3 s or 10 s). Display only.
+    var powerAveraging: PowerAveraging {
+        didSet {
+            guard powerAveraging != oldValue else { return }
+            UserDefaults.standard.set(powerAveraging.rawValue, forKey: Keys.powerAveraging)
+            refreshDisplayedPower()
+        }
+    }
+
+    /// The power the gauge shows: `latestData`'s, averaged as chosen.
+    private(set) var displayedPower: Double?
+    @ObservationIgnored private var powerAverage = RollingAverage()
+
+    private func refreshDisplayedPower() {
+        displayedPower = latestData?.instantaneousPower == nil
+            ? nil : powerAverage.average(over: powerAveraging.window, at: now)
+    }
+
     /// Dims the screen after 15 s without a touch while riding. Off by default.
     var dimWhileRiding: Bool {
         didSet {
@@ -286,6 +304,7 @@ final class BridgeController {
         static let lastZwiftConnection = "lastZwiftConnection"
         static let trainerBluetoothName = "trainerBluetoothName"
         static let speedUnit = "speedUnit"
+        static let powerAveraging = "powerAveraging"
         static let dimWhileRiding = "dimWhileRiding"
         static let source = "trainerSource"
         static let shiftingModel = "shiftingModel"
@@ -330,6 +349,7 @@ final class BridgeController {
         volumeButtonsShift = defaults.bool(forKey: Keys.volumeButtonsShift)
         debugMode = defaults.bool(forKey: Keys.debugMode)
         speedUnit = defaults.string(forKey: Keys.speedUnit).flatMap(SpeedUnit.init) ?? .localeDefault
+        powerAveraging = defaults.string(forKey: Keys.powerAveraging).flatMap(PowerAveraging.init) ?? .instant
         dimWhileRiding = defaults.bool(forKey: Keys.dimWhileRiding)
         shiftingModel = defaults.string(forKey: Keys.shiftingModel).flatMap(ShiftingModel.init) ?? .simple
         savedCalibration = defaults.data(forKey: Keys.calibration)
@@ -438,6 +458,8 @@ final class BridgeController {
         logCount = log.count
         trainerState = .idle
         latestData = nil
+        powerAverage.reset()
+        displayedPower = nil
         trainerFeature = nil
         sendingZeros = false
         core.trainerDidDisconnect()
@@ -719,6 +741,8 @@ final class BridgeController {
         link?.stop()
         core.trainerDidDisconnect()
         latestData = nil
+        powerAverage.reset()
+        displayedPower = nil
 
         let newLink: TrainerLink
         switch source {
@@ -754,7 +778,11 @@ final class BridgeController {
             let time = now
             backgroundGuard.observe(data, at: time)
             if endRideIfAbandoned(at: time) { return }
-            if let watts = data.instantaneousPower { powerGauge.observe(Double(watts), at: time) }
+            if let watts = data.instantaneousPower {
+                powerGauge.observe(Double(watts), at: time)
+                powerAverage.observe(Double(watts), at: time)
+            }
+            refreshDisplayedPower()
             if let kmh = data.instantaneousSpeed { speedGauge.observe(kmh, at: time) }
             // The bulk of the log (several a second); only kept in debug mode.
             if debugMode {

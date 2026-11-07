@@ -269,8 +269,8 @@ struct RideView: View {
         let data = bridge.latestData
         return VStack(spacing: 12 * scale) {
             GaugeReadout(title: "Power", symbol: "bolt.fill",
-                         value: data?.instantaneousPower.map { "\($0)" }, unit: "WATTS",
-                         gauge: data?.instantaneousPower.map(Double.init), range: 0...bridge.powerGauge.upperBound,
+                         value: bridge.displayedPower.map { String(format: "%.0f", $0) }, unit: "WATTS",
+                         gauge: bridge.displayedPower, range: 0...bridge.powerGauge.upperBound,
                          tint: .orange, size: 200 * scale, lineWidth: 14 * scale, valueSize: 60 * scale, isHero: true)
             HStack(spacing: 24) {
                 GaugeReadout(title: "Cadence", symbol: "arrow.triangle.2.circlepath",
@@ -430,15 +430,13 @@ private struct GaugeReadout: View {
         .accessibilityValue(value.map { "\($0) \(unit)" } ?? "no reading")
     }
 
-    /// Same-width digits, rolling as they change.
+    /// Same-width digits, changing with no animation.
     private var number: some View {
         Text(value ?? "–")
             .font(.system(size: valueSize, weight: .semibold, design: .rounded))
             .monospacedDigit()
             .lineLimit(1)
             .minimumScaleFactor(0.5)
-            .contentTransition(.numericText())
-            .animation(.snappy(duration: 0.25), value: value)
     }
 
     /// Small grey caps under the number: WATTS, RPM, KM/H.
