@@ -9,6 +9,9 @@ struct ShiftIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Shift"
     static let description = IntentDescription("Shift to a harder or easier virtual gear.")
     static let isDiscoverable = false
+    /// Run from the lock screen without unlocking the phone first. Without
+    /// this, iOS asks for Face ID or the passcode before it runs the shift.
+    static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
     /// True for a harder gear, false for an easier one.
     @Parameter(title: "Harder") var harder: Bool
